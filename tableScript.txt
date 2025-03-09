@@ -1,0 +1,162 @@
+DROP TABLE ReservationDetail;
+DROP TABLE LoanDetail;
+DROP TABLE Fine;
+DROP TABLE Reservation;
+DROP TABLE Loan;
+DROP TABLE Booking;
+DROP TABLE MemberRenewal;
+DROP TABLE Invoice;
+DROP TABLE Facility;
+DROP TABLE Book;
+DROP TABLE Member;
+
+-- Member Table
+CREATE TABLE Member (
+    MemberID 		CHAR (10)	NOT NULL,
+    FirstName 		VARCHAR (50)	NOT NULL,
+    LastName 		VARCHAR (50)	NOT NULL,
+    DOB 		DATE		NOT NULL,
+    PhoneNumber 	VARCHAR (15)	NOT NULL,
+    Gender 		CHAR(1)		NOT NULL,
+    Email 		VARCHAR (100)	NOT NULL,
+    StartDate		DATE		NOT NULL,
+    EndDate		DATE		NOT NULL,
+    PRIMARY KEY (MemberID),
+    CONSTRAINT member_gender CHECK (UPPER(Gender) in ('M', 'F')),
+    CONSTRAINT member_email CHECK (REGEXP_LIKE(Email,'^[a-zA-Z]\w+@(\S+)$'))
+);
+
+-- Book Table
+CREATE TABLE Book (
+    BookID 		CHAR (10),
+    Title 		VARCHAR (255),
+    Author 		VARCHAR (255),
+    Isbn 		CHAR (13),
+    Price 		NUMBER (6,2),
+    PublicationYear 	NUMBER (4),
+    Genre 		VARCHAR (50),
+    TotalCopies 	NUMBER,
+    AvailableCopies 	NUMBER,
+    BorrowedCount 	NUMBER,
+    PRIMARY KEY (BookID)
+);
+
+-- Facility Table
+CREATE TABLE Facility (
+    FacilityID 		CHAR (10),
+    Name 		VARCHAR (100),
+    Description 	VARCHAR (255),
+    Capacity 		NUMBER (3),
+    FacilityStatus 	VARCHAR (50) CHECK (FacilityStatus IN ('Available', 'Occupied', 'Under Maintenance')),
+    PRIMARY KEY (FacilityID)
+);
+
+-- Invoice Table
+CREATE TABLE Invoice (
+    InvoiceID 		CHAR (10),
+    InvoiceDateTime 	TIMESTAMP DEFAULT SYSTIMESTAMP,
+    PaymentDateTime 	TIMESTAMP,
+    PaymentMethod 	VARCHAR(50),
+    TotalAmount 	NUMBER (8,2),
+    MemberID 		CHAR (10),
+    PRIMARY KEY (InvoiceID),
+    FOREIGN KEY (MemberID) REFERENCES Member(MemberID)
+);
+
+-- MemberRenewal Table
+CREATE TABLE MemberRenewal (
+    MemberRenewalID 	CHAR (10),
+    MemberRenewalType 	VARCHAR (50),
+    RenewalFee 		NUMBER (5, 2),
+    RenewalDateTime	TIMESTAMP,
+    InvoiceID 		CHAR (10),
+    MemberID 		CHAR (10),
+    PRIMARY KEY (MemberRenewalID),
+    FOREIGN KEY (InvoiceID) REFERENCES Invoice(InvoiceID),
+    FOREIGN KEY (MemberID) REFERENCES Member(MemberID)
+);
+
+-- Booking Table
+CREATE TABLE Booking (
+    BookingID 		CHAR (10),
+    BookingDateTime 	TIMESTAMP DEFAULT SYSTIMESTAMP,
+    StartTime 		TIMESTAMP,
+    EndTime 		TIMESTAMP,
+    BookingStatus 	VARCHAR (50) CHECK (BookingStatus IN ('Pending', 'Confirmed', 'Cancelled')),
+    MemberID 		CHAR (10),
+    FacilityID 		CHAR (10),
+    PRIMARY KEY (BookingID),
+    FOREIGN KEY (MemberID) REFERENCES Member(MemberID),
+    FOREIGN KEY (FacilityID) REFERENCES Facility(FacilityID)
+);
+
+-- Loan Table
+CREATE TABLE Loan (
+    LoanID 		CHAR (10),
+    LoanDate 		DATE DEFAULT SYSDATE,
+    DueDate 		DATE,
+    MemberID 		CHAR (10),
+    PRIMARY KEY (LoanID),
+    FOREIGN KEY (MemberID) REFERENCES Member(MemberID)
+);
+
+-- Reservation Table
+CREATE TABLE Reservation (
+    ReservationID 		CHAR (10),
+    ReservationDateTime 	TIMESTAMP DEFAULT SYSTIMESTAMP,
+    ExpirationDate		DATE,
+    ReservationStatus 		VARCHAR (50) CHECK (ReservationStatus IN ('Pending', 'Confirmed', 'Cancelled')),
+    Remark			VARCHAR (100),
+    MemberID 			CHAR (10),
+    PRIMARY KEY (ReservationID),
+    FOREIGN KEY (MemberID) REFERENCES Member(MemberID)
+);
+
+-- Fine Table
+CREATE TABLE Fine (
+    FineID 		CHAR (10),
+    FineAmount 		NUMBER (6,2),
+    FineStatus 		VARCHAR (50) CHECK (FineStatus IN ('Unpaid', 'Paid')),
+    IssueDateTime 	TIMESTAMP DEFAULT SYSTIMESTAMP,
+    AdditionalFee 	NUMBER (6,2),
+    Remark 		VARCHAR (100),
+    InvoiceID 		CHAR (10),
+    PRIMARY KEY (FineID),
+    FOREIGN KEY (InvoiceID) REFERENCES Invoice(InvoiceID)
+);
+
+-- LoanDetail Table
+CREATE TABLE LoanDetail (
+    LoanID 		CHAR (10),
+    BookID 		CHAR (10),
+    ReturnDate 		DATE,
+    LoanExtension 	NUMBER (1) CHECK (LoanExtension IN (0,1)),
+    ExtendedDueDate 	DATE,
+    Status 		VARCHAR (50) CHECK (Status IN ('Borrowed', 'Returned', 'Extended')),
+    FineID		CHAR (10),
+    PRIMARY KEY (LoanID, BookID),
+    FOREIGN KEY (BookID) REFERENCES Book(BookID),
+    FOREIGN KEY (LoanID) REFERENCES Loan(LoanID),
+    FOREIGN KEY (FineID) REFERENCES Fine(FineID)
+);
+
+-- ReservationDetail Table (Bridge Entity)
+CREATE TABLE ReservationDetail (
+    ReservationID 	CHAR (10),
+    BookID 		CHAR (10),
+    AvailableDateTime	TIMESTAMP,
+    PickupDateTime	TIMESTAMP,
+    PRIMARY KEY (ReservationID, BookID),
+    FOREIGN KEY (BookID) REFERENCES Book(BookID),
+    FOREIGN KEY (ReservationID) REFERENCES Reservation(ReservationID)
+);
+
+-- Indexes for faster lookup
+-- CREATE INDEX IDX_ReservationDetail_ReservationID ON ReservationDetail (ReservationID);
+-- CREATE INDEX IDX_LoanDetail_LoanID ON LoanDetail (LoanID);
+-- CREATE INDEX IDX_LoanDetail_BookID ON LoanDetail (BookID);
+-- CREATE INDEX IDX_Booking_MemberID ON Booking (MemberID);
+-- CREATE INDEX IDX_Booking_FacilityID ON Booking (FacilityID);
+
+COMMIT;
+
