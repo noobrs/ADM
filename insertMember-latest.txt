@@ -1,0 +1,56 @@
+--SET PAGESIZE 100
+--SET LINESIZE 150
+DELETE FROM Member;
+
+ALTER SESSION SET NLS_DATE_FORMAT='YYYY-MM-DD';
+
+INSERT INTO Member VALUES ('MEM0000001', 'John', 'Doe', '1995-04-12', '0198765432', 'M', 'johndoe@example.com', '2020-01-15', '2022-01-15');
+INSERT INTO Member VALUES ('MEM0000002', 'Emma', 'Smith', '1996-06-24', '0187654321', 'F', 'emmasmith@example.com', '2020-02-10', '2023-02-10');
+INSERT INTO Member VALUES ('MEM0000003', 'Liam', 'Johnson', '1994-08-15', '0196543210', 'M', 'liamj@example.com', '2020-03-05', '2023-03-05');
+INSERT INTO Member VALUES ('MEM0000004', 'Olivia', 'Brown', '1997-11-30', '0185432109', 'F', 'oliviab@example.com', '2021-04-20', '2023-04-20');
+INSERT INTO Member VALUES ('MEM0000005', 'Noah', 'Williams', '1993-12-10', '0194321098', 'M', 'noahw@example.com', '2021-05-12', '2024-05-12');
+INSERT INTO Member VALUES ('MEM0000006', 'Ava', 'Jones', '1995-07-08', '0183210987', 'F', 'avaj@example.com', '2021-06-08', '2023-06-08');
+INSERT INTO Member VALUES ('MEM0000007', 'James', 'Miller', '1992-05-19', '0192109876', 'M', 'jamesm@example.com', '2022-07-03', '2024-07-03');
+INSERT INTO Member VALUES ('MEM0000008', 'Sophia', 'Davis', '1996-03-21', '0181098765', 'F', 'sophiad@example.com', '2022-08-16', '2023-08-16');
+INSERT INTO Member VALUES ('MEM0000009', 'Benjamin', 'Garcia', '1994-09-02', '0199876543', 'M', 'benjaming@example.com', '2022-09-10', '2024-09-10');
+INSERT INTO Member VALUES ('MEM0000010', 'Isabella', 'Rodriguez', '1993-01-28', '0188765432', 'F', 'isabellar@example.com', '2023-10-05', '2024-10-05');
+INSERT INTO Member VALUES ('MEM0000011', 'Henry', 'Martinez', '1997-06-17', '0197654321', 'M', 'henrym@example.com', '2024-06-20', '2025-06-20');
+INSERT INTO Member VALUES ('MEM0000012', 'Mia', 'Hernandez', '1995-02-14', '0186543210', 'F', 'miah@example.com', '2024-07-14', '2025-07-14');
+INSERT INTO Member VALUES ('MEM0000013', 'Alexander', 'Lopez', '1993-06-11', '0195432109', 'M', 'alexl@example.com', '2024-08-05', '2025-08-05');
+INSERT INTO Member VALUES ('MEM0000014', 'Charlotte', 'Gonzalez', '1997-09-30', '0184321098', 'F', 'charlotteg@example.com', '2024-08-10', '2025-08-10');
+INSERT INTO Member VALUES ('MEM0000015', 'Daniel', 'Wilson', '1990-08-25', '0193210987', 'M', 'danielw@example.com', '2024-12-25', '2025-12-25');
+INSERT INTO Member VALUES ('MEM0000016', 'Amelia', 'Anderson', '1994-04-18', '0182109876', 'F', 'ameliaa@example.com', '2025-01-05', '2026-01-05');
+INSERT INTO Member VALUES ('MEM0000017', 'Matthew', 'Thomas', '1992-11-08', '0191098765', 'M', 'matthewt@example.com', '2025-01-12', '2026-01-12');
+INSERT INTO Member VALUES ('MEM0000018', 'Harper', 'Taylor', '1996-05-27', '0189876543', 'F', 'harpert@example.com', '2025-02-01', '2026-02-01');
+INSERT INTO Member VALUES ('MEM0000019', 'David', 'Moore', '1993-12-14', '0198765432', 'M', 'davidm@example.com', '2025-02-15', '2026-02-15');
+INSERT INTO Member VALUES ('MEM0000020', 'Evelyn', 'Jackson', '1991-07-05', '0187654321', 'F', 'evelynj@example.com', '2025-03-20', '2026-03-20');
+INSERT INTO Member VALUES ('MEM0000021', 'Joseph', 'Martin', '1994-09-17', '0196543210', 'M', 'josephm@example.com', '2023-06-04', '2025-06-04');
+INSERT INTO Member VALUES ('MEM0000022', 'Luna', 'Lee', '1997-01-29', '0185432109', 'F', 'lunal@example.com', '2023-08-05', '2025-08-05');
+INSERT INTO Member VALUES ('MEM0000023', 'Samuel', 'Perez', '1995-06-23', '0194321098', 'M', 'samuelp@example.com', '2023-09-06', '2025-09-06');
+INSERT INTO Member VALUES ('MEM0000024', 'Scarlett', 'White', '1992-04-06', '0183210987', 'F', 'scarlettw@example.com', '2024-06-07', '2026-06-07');
+INSERT INTO Member VALUES ('MEM0000025', 'Michael', 'Harris', '1990-11-12', '0192109876', 'M', 'michaelh@example.com', '2024-08-08', '2026-08-08');
+INSERT INTO Member VALUES ('MEM0000026', 'Elijah', 'Clark', '1991-03-22', '0199876543', 'M', 'elijahc@example.com', '2024-12-09', '2026-12-09');
+INSERT INTO Member VALUES ('MEM0000027', 'Lily', 'Lewis', '1996-08-14', '0188765432', 'F', 'lilyl@example.com', '2025-01-02', '2027-01-02');
+INSERT INTO Member VALUES ('MEM0000028', 'William', 'Walker', '1994-10-05', '0197654321', 'M', 'williamw@example.com', '2025-02-15', '2027-02-15');
+INSERT INTO Member VALUES ('MEM0000029', 'Hannah', 'Hall', '1993-02-18', '0186543210', 'F', 'hannahh@example.com', '2025-03-01', '2027-03-01');
+INSERT INTO Member VALUES ('MEM0000030', 'Sebastian', 'Allen', '1997-07-12', '0195432109', 'M', 'sebastiana@example.com', '2025-04-01', '2027-04-01');
+INSERT INTO Member VALUES ('MEM0000031', 'Zoe', 'Young', '1992-05-27', '0184321098', 'F', 'zoey@example.com', '2022-09-03', '2025-09-03');
+INSERT INTO Member VALUES ('MEM0000032', 'Ethan', 'King', '1995-11-09', '0193210987', 'M', 'ethank@example.com', '2022-12-15', '2025-12-15');
+INSERT INTO Member VALUES ('MEM0000033', 'Madison', 'Scott', '1996-04-04', '0182109876', 'F', 'madisons@example.com', '2023-05-01', '2026-05-01');
+INSERT INTO Member VALUES ('MEM0000034', 'Caleb', 'Green', '1994-09-29', '0191098765', 'M', 'calebg@example.com', '2023-10-10', '2026-10-10');
+INSERT INTO Member VALUES ('MEM0000035', 'Aria', 'Baker', '1993-12-07', '0189876543', 'F', 'ariab@example.com', '2024-08-25', '2027-08-25');
+INSERT INTO Member VALUES ('MEM0000036', 'Mason', 'Adams', '1990-06-30', '0198765432', 'M', 'masona@example.com', '2024-11-02', '2027-11-02');
+INSERT INTO Member VALUES ('MEM0000037', 'Grace', 'Nelson', '1997-10-22', '0187654321', 'F', 'gracen@example.com', '2024-12-31', '2027-12-31');
+INSERT INTO Member VALUES ('MEM0000038', 'Nathan', 'Carter', '1995-05-19', '0196543210', 'M', 'nathanc@example.com', '2025-01-01', '2028-01-01');
+INSERT INTO Member VALUES ('MEM0000039', 'Chloe', 'Mitchell', '1994-08-11', '0185432109', 'F', 'chloem@example.com', '2025-02-10', '2028-02-10');
+INSERT INTO Member VALUES ('MEM0000040', 'Andrew', 'Perez', '1992-01-17', '0194321098', 'M', 'andrewp@example.com', '2025-03-20', '2028-03-20');
+INSERT INTO Member VALUES ('MEM0000041', 'Ella', 'Roberts', '1993-06-28', '0183210987', 'F', 'ellar@example.com', '2024-09-02', '2026-01-02');
+INSERT INTO Member VALUES ('MEM0000042', 'Lucas', 'Turner', '1990-04-15', '0192109876', 'M', 'lucast@example.com', '2024-11-15', '2026-02-15');
+INSERT INTO Member VALUES ('MEM0000043', 'Sophie', 'Phillips', '1996-12-01', '0181098765', 'F', 'sophiep@example.com', '2024-12-28', '2026-03-28');
+INSERT INTO Member VALUES ('MEM0000044', 'Jack', 'Campbell', '1997-09-14', '0199988776', 'M', 'jackc@example.com', '2023-05-05', '2025-08-05');
+INSERT INTO Member VALUES ('MEM0000045', 'Victoria', 'Evans', '1995-07-09', '0188877665', 'F', 'victoriae@example.com', '2024-02-12', '2026-05-12');
+INSERT INTO Member VALUES ('MEM0000046', 'Dylan', 'Edwards', '1993-05-22', '0197766554', 'M', 'dylane@example.com', '2024-06-25', '2026-12-25');
+INSERT INTO Member VALUES ('MEM0000047', 'Leah', 'Collins', '1992-10-31', '0186655443', 'F', 'leahc@example.com', '2024-03-03', '2027-09-03');
+INSERT INTO Member VALUES ('MEM0000048', 'Isaac', 'Stewart', '1994-09-05', '0195544332', 'M', 'isaacs@example.com', '2024-12-10', '2028-03-10');
+INSERT INTO Member VALUES ('MEM0000049', 'Penelope', 'Morris', '1996-08-12', '0184433221', 'F', 'penelopem@example.com', '2023-12-20', '2027-03-20');
+INSERT INTO Member VALUES ('MEM0000050', 'Gabriel', 'Rogers', '1990-02-14', '0193322110', 'M', 'gabrielr@example.com', '2025-03-31', '2028-05-31');
