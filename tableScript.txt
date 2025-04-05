@@ -142,12 +142,11 @@ CREATE TABLE ReservationDetail (
     ReservationID 	CHAR (10) 	NOT NULL,
     BookID 		CHAR (10) 	NOT NULL,
     AvailableDate	DATE,
-    Status 		VARCHAR (50) 	NOT NULL,
+    Status 		VARCHAR (15) 	CHECK (UPPER(Status) IN ('AVAILABLE', 'NOT AVAILABLE')) NOT NULL,
     PRIMARY KEY (ReservationID, BookID),
     FOREIGN KEY (BookID) REFERENCES Book(BookID),
     FOREIGN KEY (ReservationID) REFERENCES Reservation(ReservationID)
 );
-
 
 COMMIT;
 
