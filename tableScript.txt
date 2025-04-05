@@ -103,10 +103,10 @@ CREATE TABLE Loan (
 -- Reservation Table
 CREATE TABLE Reservation (
     ReservationID 	CHAR (10) 	NOT NULL,
-    ReservationDate 	DATE 		NOT NULL,
-    ReservationStatus 	VARCHAR (50) 	CHECK (UPPER(ReservationStatus) IN ('PENDING', 'CONFIRMED', 'CANCELLED')) NOT NULL,
+    ReservationDate     DATE    	NOT NULL,
+    ReservationStatus 	VARCHAR (50) 	CHECK (UPPER(ReservationStatus) IN ('PENDING', 'READY', 'COMPLETED', 'CANCELLED')) NOT NULL,
     Remark		VARCHAR (100),
-    PickupDate 		DATE,
+    PickupDate          DATE,
     MemberID 		CHAR (10) 	NOT NULL,
     PRIMARY KEY (ReservationID),
     FOREIGN KEY (MemberID) REFERENCES Member(MemberID)
