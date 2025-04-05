@@ -78,8 +78,8 @@ CREATE TABLE MemberRenewal (
 CREATE TABLE Booking (
     BookingID 		CHAR (10) 	NOT NULL,
     BookingDate 	DATE 	 	NOT NULL,
-    StartTime 		TIME 		NOT NULL,
-    EndTime 		TIME	 	NOT NULL,
+    StartTime 		TIMESTAMP 	NOT NULL,
+    EndTime 		TIMESTAMP 	NOT NULL,
     BookingStatus 	VARCHAR (50)  	CHECK (UPPER(BookingStatus) IN ('PENDING', 'CONFIRMED', 'CANCELLED')) NOT NULL,
     MemberID 		CHAR (10) 	NOT NULL,
     FacilityID 		CHAR (10) 	NOT NULL,
