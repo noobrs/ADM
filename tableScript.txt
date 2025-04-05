@@ -33,7 +33,7 @@ CREATE TABLE Book (
     Price 		NUMBER (6,2)	NOT NULL,
     PublicationYear 	NUMBER (4, 0)	NOT NULL,
     Genre 		VARCHAR (50)	NOT NULL,
-    TotalCopies 	NUMBER (3, 0)		NOT NULL,
+    TotalCopies 	NUMBER (3, 0)	NOT NULL,
     AvailableCopies 	NUMBER	(3,0)	NOT NULL,
     BorrowedCount 	NUMBER (8,0) 	NOT NULL,
     PRIMARY KEY (BookID)
@@ -64,9 +64,9 @@ CREATE TABLE Invoice (
 -- MemberRenewal Table
 CREATE TABLE MemberRenewal (
     MemberRenewalID 	CHAR (10) 	NOT NULL,
-    Duration 	 	NUMBER (2,0) 	NOT NULL,
-    RenewalFee 		NUMBER (5, 2) 	NOT NULL,
-    RenewalDate		DATE 	 	NOT NULL,
+    RenewalFee 		NUMBER (6, 2) 	NOT NULL,
+    Duration            NUMBER (1)      NOT NULL,
+    RenewalDate  	DATE    	NOT NULL,
     InvoiceID 		CHAR (10) 	UNIQUE NOT NULL,
     MemberID 		CHAR (10) 	NOT NULL,
     PRIMARY KEY (MemberRenewalID),
@@ -76,13 +76,15 @@ CREATE TABLE MemberRenewal (
 
 -- Booking Table
 CREATE TABLE Booking (
-    BookingID 		CHAR (10) 	NOT NULL,
-    BookingDate 	DATE 	 	NOT NULL,
-    StartTime 		TIMESTAMP 	NOT NULL,
-    EndTime 		TIMESTAMP 	NOT NULL,
-    BookingStatus 	VARCHAR (50)  	CHECK (UPPER(BookingStatus) IN ('PENDING', 'CONFIRMED', 'CANCELLED')) NOT NULL,
-    MemberID 		CHAR (10) 	NOT NULL,
-    FacilityID 		CHAR (10) 	NOT NULL,
+    BookingID 		CHAR (10) 	  NOT NULL,
+    BookingDate		DATE 	          NOT NULL,
+    StartTime 		TIMESTAMP         NOT NULL,
+    EndTime 		TIMESTAMP         NOT NULL,
+    BookingStatus 	VARCHAR (50)  	  CHECK (UPPER(BookingStatus) IN ('PENDING', 'CONFIRMED', 'CANCELLED', 'CHECKED-IN', 'COMPLETED'))  NOT NULL,
+    CheckInTime 	TIMESTAMP         NULL,
+    CheckOutTime 	TIMESTAMP         NULL,
+    MemberID 		CHAR (10) 	  NOT NULL,
+    FacilityID 		CHAR (10) 	  NOT NULL,
     PRIMARY KEY (BookingID),
     FOREIGN KEY (MemberID) REFERENCES Member(MemberID),
     FOREIGN KEY (FacilityID) REFERENCES Facility(FacilityID)
