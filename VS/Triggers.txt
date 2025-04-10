@@ -1,42 +1,51 @@
 -- Trigger 1: check if member loaning books exceed defined limit
 SET SERVEROUTPUT ON;
 
-CREATE OR REPLACE TRIGGER trg_limit_books_on_loan
-BEFORE INSERT ON LoanDetail
+CREATE OR REPLACE TRIGGER trg_limit_books_per_loan_or_reservation
+BEFORE INSERT ON LoanDetail, ReservationDetail  -- Trigger for both LoanDetail and ReservationDetail
 FOR EACH ROW
 DECLARE
     v_member_id CHAR(10);
-    v_total_active NUMBER;
+    v_current_books NUMBER;
 BEGIN
-    -- Get the MemberID from Loan
-    SELECT MemberID INTO v_member_id
-    FROM Loan
-    WHERE LoanID = :NEW.LoanID;
+    -- Determine if the trigger is fired for LoanDetail or ReservationDetail
+    IF INSERTING THEN
+        IF :NEW.LoanID IS NOT NULL THEN
+            -- For LoanDetail: Get the MemberID from Loan
+            SELECT MemberID INTO v_member_id
+            FROM Loan
+            WHERE LoanID = :NEW.LoanID;
 
-    -- Count current active loans and reservations
-    SELECT 
-        NVL((
-            SELECT COUNT(*) 
-            FROM LoanDetail ld 
-            JOIN Loan l ON ld.LoanID = l.LoanID
-            WHERE l.MemberID = v_member_id
-              AND UPPER(ld.Status) IN ('BORROWED', 'EXTENDED')
-        ), 0) +
-        NVL((
-            SELECT COUNT(*) 
-            FROM ReservationDetail rd 
-            JOIN Reservation r ON rd.ReservationID = r.ReservationID
-            WHERE r.MemberID = v_member_id
-              AND UPPER(rd.Status) IN ('NOT AVAILABLE', 'AVAILABLE')
-        ), 0)
-    INTO v_total_active
-    FROM dual;
+            -- Count the number of books the member is trying to borrow in the current loan
+            SELECT COUNT(*) INTO v_current_books
+            FROM LoanDetail
+            WHERE LoanID = :NEW.LoanID;
+            
+            -- Check if the number of books in the current loan exceeds 5
+            IF v_current_books >= 5 THEN
+                RAISE_APPLICATION_ERROR(-20001, 'Member can borrow a maximum of 5 books per loan.');
+            END IF;
+        ELSIF :NEW.ReservationID IS NOT NULL THEN
+            -- For ReservationDetail: Get the MemberID from Reservation
+            SELECT MemberID INTO v_member_id
+            FROM Reservation
+            WHERE ReservationID = :NEW.ReservationID;
 
-    IF v_total_active >= 5 THEN
-        RAISE_APPLICATION_ERROR(-20001, 'Member has reached the limit of 5 active books (loans + reservations).');
+            -- Count the number of books the member is trying to reserve in the current reservation
+            SELECT COUNT(*) INTO v_current_books
+            FROM ReservationDetail
+            WHERE ReservationID = :NEW.ReservationID;
+            
+            -- Check if the number of books in the current reservation exceeds 5
+            IF v_current_books >= 5 THEN
+                RAISE_APPLICATION_ERROR(-20002, 'Member can reserve a maximum of 5 books per reservation.');
+            END IF;
+        END IF;
     END IF;
 END;
 /
+
+
 
 
 
@@ -49,17 +58,22 @@ FOR EACH ROW
 DECLARE
     v_due DATE;
     v_fine_id CHAR(10);
+    v_fine_amount NUMBER(6,2);
 BEGIN
     IF UPPER(:NEW.Status) = 'RETURNED' THEN
         v_due := COALESCE(:OLD.ExtendedDueDate, 
                          (SELECT DueDate FROM Loan WHERE LoanID = :OLD.LoanID));
 
+        -- If returned late, calculate the fine
         IF :NEW.ReturnDate > v_due THEN
+            -- Calculate the number of days overdue
+            v_fine_amount := (SYSDATE - v_due) * 2;  -- RM2 per day fine
+
             -- Generate FineID (you can replace this with a sequence)
             v_fine_id := 'FINE' || TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS');
 
             INSERT INTO Fine (FineID, FineAmount, FineStatus, IssueDate, Remark)
-            VALUES (v_fine_id, 10.00, 'UNPAID', SYSDATE, 'Late return');
+            VALUES (v_fine_id, v_fine_amount, 'UNPAID', SYSDATE, 'Late return');
 
             UPDATE LoanDetail
             SET FineID = v_fine_id,
@@ -69,6 +83,7 @@ BEGIN
     END IF;
 END;
 /
+
 
 
 

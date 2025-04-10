@@ -1,0 +1,66 @@
+-- Query 1: List of Members with Overdue Loans and Associated Fines
+-- The purpose of this query is to retrieve a list of members who have overdue loans and calculate the corresponding fine for each overdue book. It helps in identifying members who have not returned books on time and need to pay fines. The fine is calculated based on the number of days the book is overdue, as per the library's fine policy of RM2 per day. This query allows the library staff to easily track overdue loans and ensure that fines are accurately assessed and collected.
+
+SET LINESIZE 120;
+SET PAGESIZE 200;
+
+SELECT
+    m.MemberID,
+    m.Name,
+    m.Email,
+    ld.BookID,
+    b.Title AS BookTitle,
+    ld.DueDate,
+    ld.ReturnDate,
+    CASE
+        WHEN ld.ReturnDate > ld.DueDate THEN
+            (SYSDATE - ld.DueDate) * 2  -- RM2 per day late fine
+        ELSE
+            0
+    END AS FineAmount
+FROM
+    LoanDetail ld
+JOIN
+    Loan l ON ld.LoanID = l.LoanID
+JOIN
+    Member m ON l.MemberID = m.MemberID
+JOIN
+    Book b ON ld.BookID = b.BookID
+WHERE
+    ld.Status = 'BORROWED'
+    AND ld.ReturnDate IS NULL
+    AND ld.DueDate < SYSDATE
+ORDER BY
+    m.MemberID, ld.DueDate;
+
+
+
+-- Query 2: List of All Members with Their Book Reservations and Pickup Status
+-- This query aims to provide a list of all members with their book reservations and the status of the reserved books, including whether the books have been picked up or are overdue for pickup. It helps track the reservation process and ensures that members pick up their reserved books within the allowed timeframe (7 days). The query flags expired reservations (those not picked up within 7 days) and provides the library staff with valuable information on active reservations, book availability, and member engagement. It also helps monitor whether books are being picked up on time, preventing forfeited books from affecting the library’s inventory management.
+
+SET LINESIZE 120;
+SET PAGESIZE 200;
+
+SELECT
+    m.MemberID,
+    m.Name,
+    r.ReservationID,
+    b.BookID,
+    b.Title AS BookTitle,
+    rd.Status AS ReservationStatus,
+    r.PickupDate,
+    CASE
+        WHEN r.PickupDate IS NOT NULL AND SYSDATE - r.PickupDate > 7 THEN 'Expired'
+        WHEN r.PickupDate IS NULL THEN 'Not Picked Up'
+        ELSE 'Picked Up'
+    END AS PickupStatus
+FROM
+    Member m
+JOIN
+    Reservation r ON m.MemberID = r.MemberID
+JOIN
+    ReservationDetail rd ON r.ReservationID = rd.ReservationID
+JOIN
+    Book b ON rd.BookID = b.BookID
+ORDER BY
+    m.MemberID, r.ReservationID;

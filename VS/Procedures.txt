@@ -2,40 +2,51 @@ SET SERVEROUTPUT ON;
 
 -- Procedure 1: proc_renew_membership
 -- This procedure renews a member’s membership. If the member is still active (renewal date before current end date), it extends the membership by adding the purchased plan period plus any remaining days; if expired, the new period is set solely from the renewal date. It inserts a renewal record in the MemberRenewal table.
+-- The purpose of this procedure is to renew the membership of a specific member by checking their current membership status and extending the membership period based on the chosen renewal plan. It first fetches the member's data, then calculates the new start and end dates for the membership based on whether the member is currently active or expired. The procedure updates the member's record with the new dates and inserts a renewal record into the MemberRenewal table, while handling errors and ensuring data integrity with a rollback in case of failure.
 CREATE OR REPLACE PROCEDURE proc_renew_membership (
   p_MemberID    IN Member.MemberID%TYPE,
   p_Duration    IN NUMBER,          -- Duration in years (e.g., 1, 2, or 3)
   p_RenewalFee  IN NUMBER,          -- Renewal fee for the chosen plan
   p_RenewalDate IN DATE             -- Date when the renewal is processed
 ) IS
-  v_oldEndDate    DATE;
-  v_memberStatus  VARCHAR2(50);
-  v_newStartDate  DATE;
-  v_newEndDate    DATE;
+  -- Declare rowtype variable for Member record
+  v_memberRec    Member%ROWTYPE;
+  v_newStartDate DATE;
+  v_newEndDate   DATE;
 BEGIN
-  SELECT EndDate, 'Active' 
-    INTO v_oldEndDate, v_memberStatus 
+  -- Fetch member data into v_memberRec
+  SELECT * INTO v_memberRec 
     FROM Member
    WHERE MemberID = p_MemberID;
   
-  IF p_RenewalDate < v_oldEndDate THEN
+  -- Check if member exists
+  IF SQL%NOTFOUND THEN
+    RAISE_APPLICATION_ERROR(-20001, 'Member not found.');
+  END IF;
+
+  -- Renew membership based on the current membership status
+  IF p_RenewalDate < v_memberRec.EndDate THEN
     -- Active member: new start date is renewal date; extend by plan period plus remaining days.
     v_newStartDate := p_RenewalDate;
-    v_newEndDate   := ADD_MONTHS(p_RenewalDate, p_Duration * 12) + (v_oldEndDate - p_RenewalDate);
+    v_newEndDate   := ADD_MONTHS(p_RenewalDate, p_Duration * 12) + (v_memberRec.EndDate - p_RenewalDate);
   ELSE
     -- Expired member: new period based solely on renewal date and plan duration.
     v_newStartDate := p_RenewalDate;
     v_newEndDate   := ADD_MONTHS(p_RenewalDate, p_Duration * 12);
   END IF;
   
-  -- Update member record with new membership period.
+  -- Update member record with new membership period
   UPDATE Member
      SET StartDate = v_newStartDate,
-         EndDate   = v_newEndDate,
-         MemberStatus = 'Active'
+         EndDate   = v_newEndDate
    WHERE MemberID = p_MemberID;
   
-  -- Insert renewal record; generate a Renewal ID dynamically.
+  -- Check if the update was successful
+  IF SQL%ROWCOUNT = 0 THEN
+    RAISE_APPLICATION_ERROR(-20002, 'Failed to update member record.');
+  END IF;
+
+  -- Insert renewal record with a dynamically generated MemberRenewalID
   INSERT INTO MemberRenewal 
     (MemberRenewalID, RenewalFee, Duration, RenewalDate, InvoiceID, MemberID)
   VALUES 
@@ -47,12 +58,80 @@ BEGIN
      p_MemberID);
   
   COMMIT;
+
 EXCEPTION
   WHEN OTHERS THEN
+    -- Rollback in case of any error
     ROLLBACK;
     RAISE;
 END proc_renew_membership;
 /
+
+
+-- Procedure 2 Updated: proc_member_loan
+-- The purpose of this procedure is to retrieve and process loan and loan detail information for active members by iterating through each active member and checking their loan details. It uses nested cursors to fetch the loan details and related books, and for each loan, it can perform actions such as checking overdue status and calculating fines based on the return dates. The procedure ensures the accurate handling of member and loan data and can be used for further processing, such as reporting overdue loans or updating records with fine details.
+CREATE OR REPLACE PROCEDURE proc_member_loan IS
+  -- Outer cursor: Fetching members
+  CURSOR c_members IS
+    SELECT MemberID, FirstName, LastName
+      FROM Member
+     WHERE EndDate > SYSDATE;  -- Consider only active members
+
+  -- Inner cursor: Fetching loan details for each member
+  CURSOR c_loans (p_memberID CHAR) IS
+    SELECT LoanID, BookID, DueDate, Status
+      FROM Loan
+     WHERE MemberID = p_memberID
+       AND Status IN ('BORROWED', 'EXTENDED');  -- Only loans that are not yet returned
+
+  -- Variables to hold data from cursors
+  v_memberRec c_members%ROWTYPE;
+  v_loanRec   c_loans%ROWTYPE;
+BEGIN
+  -- Open the outer cursor
+  OPEN c_members;
+  
+  -- Loop through the members
+  LOOP
+    FETCH c_members INTO v_memberRec;
+    EXIT WHEN c_members%NOTFOUND;  -- Exit loop when no more members
+
+    -- Print member info (this could be any logic, e.g., logging or processing)
+    DBMS_OUTPUT.PUT_LINE('Member ID: ' || v_memberRec.MemberID || 
+                         ', Name: ' || v_memberRec.FirstName || ' ' || v_memberRec.LastName);
+    
+    -- Open the inner cursor for the current member
+    OPEN c_loans(v_memberRec.MemberID);
+    
+    -- Loop through the loans for the current member
+    LOOP
+      FETCH c_loans INTO v_loanRec;
+      EXIT WHEN c_loans%NOTFOUND;  -- Exit loop when no more loans
+
+      -- Print loan details (this could be any logic, e.g., logging or processing)
+      DBMS_OUTPUT.PUT_LINE('  Loan ID: ' || v_loanRec.LoanID || 
+                           ', Book ID: ' || v_loanRec.BookID || 
+                           ', Due Date: ' || TO_CHAR(v_loanRec.DueDate, 'YYYY-MM-DD') || 
+                           ', Status: ' || v_loanRec.Status);
+    END LOOP;
+
+    -- Close the inner cursor
+    CLOSE c_loans;
+  END LOOP;
+
+  -- Close the outer cursor
+  CLOSE c_members;
+
+  COMMIT;
+
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Rollback in case of any error
+    ROLLBACK;
+    RAISE;
+END proc_nested_cursor_example;
+/
+
 
 
 
