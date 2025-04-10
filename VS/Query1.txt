@@ -1,0 +1,32 @@
+-- Query 1: Overdue Loan Details Query (with Fine Status)
+-- This query retrieves all loan details where the return occurred after the effective due date (considering extensions if available). It includes member and book details:
+
+SET LINESIZE 120;
+SET PAGESIZE 200;
+
+SELECT 
+  m.MemberID,
+  m.FirstName,
+  m.LastName,
+  l.LoanID,
+  l.LoanDate,
+  l.DueDate,
+  ld.BookID,
+  b.Title,
+  ld.ReturnDate,
+  NVL(ld.ExtendedDueDate, l.DueDate) AS EffectiveDueDate,
+  TRUNC(NVL(ld.ReturnDate, SYSDATE)) - TRUNC(NVL(ld.ExtendedDueDate, l.DueDate)) AS OverdueDays,
+  CASE 
+    WHEN NVL(ld.ReturnDate, SYSDATE) > NVL(ld.ExtendedDueDate, l.DueDate) 
+         THEN 'OVERDUE'
+    ELSE 'ON TIME'
+  END AS LoanStatus,
+  f.FineID,
+  f.FineAmount,
+  f.FineStatus
+FROM Loan l
+JOIN LoanDetail ld ON l.LoanID = ld.LoanID
+JOIN Member m ON l.MemberID = m.MemberID
+JOIN Book b ON ld.BookID = b.BookID
+LEFT JOIN Fine f ON ld.FineID = f.FineID
+WHERE ld.ReturnDate > NVL(ld.ExtendedDueDate, l.DueDate);

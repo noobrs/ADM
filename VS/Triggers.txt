@@ -1,0 +1,76 @@
+-- Trigger 1: check if member loaning books exceed defined limit
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE TRIGGER trg_limit_books_on_loan
+BEFORE INSERT ON LoanDetail
+FOR EACH ROW
+DECLARE
+    v_member_id CHAR(10);
+    v_total_active NUMBER;
+BEGIN
+    -- Get the MemberID from Loan
+    SELECT MemberID INTO v_member_id
+    FROM Loan
+    WHERE LoanID = :NEW.LoanID;
+
+    -- Count current active loans and reservations
+    SELECT 
+        NVL((
+            SELECT COUNT(*) 
+            FROM LoanDetail ld 
+            JOIN Loan l ON ld.LoanID = l.LoanID
+            WHERE l.MemberID = v_member_id
+              AND UPPER(ld.Status) IN ('BORROWED', 'EXTENDED')
+        ), 0) +
+        NVL((
+            SELECT COUNT(*) 
+            FROM ReservationDetail rd 
+            JOIN Reservation r ON rd.ReservationID = r.ReservationID
+            WHERE r.MemberID = v_member_id
+              AND UPPER(rd.Status) IN ('NOT AVAILABLE', 'AVAILABLE')
+        ), 0)
+    INTO v_total_active
+    FROM dual;
+
+    IF v_total_active >= 5 THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Member has reached the limit of 5 active books (loans + reservations).');
+    END IF;
+END;
+/
+
+
+
+-- Trigger 2: check returned book duedate and assign fine if returned late
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE TRIGGER trg_assign_fine_on_return
+AFTER UPDATE OF Status ON LoanDetail
+FOR EACH ROW
+DECLARE
+    v_due DATE;
+    v_fine_id CHAR(10);
+BEGIN
+    IF UPPER(:NEW.Status) = 'RETURNED' THEN
+        v_due := COALESCE(:OLD.ExtendedDueDate, 
+                         (SELECT DueDate FROM Loan WHERE LoanID = :OLD.LoanID));
+
+        IF :NEW.ReturnDate > v_due THEN
+            -- Generate FineID (you can replace this with a sequence)
+            v_fine_id := 'FINE' || TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS');
+
+            INSERT INTO Fine (FineID, FineAmount, FineStatus, IssueDate, Remark)
+            VALUES (v_fine_id, 10.00, 'UNPAID', SYSDATE, 'Late return');
+
+            UPDATE LoanDetail
+            SET FineID = v_fine_id,
+                Status = 'LATE RETURNED'
+            WHERE LoanID = :OLD.LoanID AND BookID = :OLD.BookID;
+        END IF;
+    END IF;
+END;
+/
+
+
+
+
+
