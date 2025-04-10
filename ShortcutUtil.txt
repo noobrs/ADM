@@ -1,0 +1,23 @@
+DELETE FROM ReservationDetail;
+DELETE FROM LoanDetail;
+DELETE FROM Fine;
+DELETE FROM Reservation;
+DELETE FROM Loan;
+DELETE FROM Booking;
+DELETE FROM MemberRenewal;
+DELETE FROM Invoice;
+DELETE FROM Facility;
+DELETE FROM Book;
+DELETE FROM Member;
+
+SELECT COUNT(*) AS Member FROM Member;
+SELECT COUNT(*) AS Book FROM Book;
+SELECT COUNT(*) AS Facility FROM Facility;
+SELECT COUNT(*) AS Invoice FROM Invoice;
+SELECT COUNT(*) AS MemberRenewal FROM MemberRenewal;
+SELECT COUNT(*) AS Booking FROM Booking;
+SELECT COUNT(*) AS Loan FROM Loan;
+SELECT COUNT(*) AS Reservation FROM Reservation;
+SELECT COUNT(*) AS Fine FROM Fine;
+SELECT COUNT(*) AS LoanDetail FROM LoanDetail;
+SELECT COUNT(*) AS ReservationDetail FROM ReservationDetail;

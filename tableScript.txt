@@ -53,7 +53,7 @@ CREATE TABLE Facility (
 -- Invoice Table
 CREATE TABLE Invoice (
     InvoiceID 		CHAR (10) 	NOT NULL,
-    PaymentDateTime 	TIMESTAMP 	NOT NULL,
+    PaymentDate 	DATE 		NOT NULL,
     PaymentMethod 	VARCHAR(50) 	NOT NULL,
     TotalAmount 	NUMBER (8,2) 	NOT NULL,
     MemberID 		CHAR (10) 	NOT NULL,
