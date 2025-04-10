@@ -131,7 +131,7 @@ CREATE TABLE LoanDetail (
     ReturnDate 		DATE 		NOT NULL,
     ExtensionCount 	NUMBER (1,0) 	DEFAULT 0 CHECK (ExtensionCount >= 0) NOT NULL,
     ExtendedDueDate 	DATE,
-    Status 		VARCHAR (50) 	CHECK (UPPER(Status) IN ('BORROWED', 'RETURNED', 'EXTENDED')) NOT NULL,
+    Status 		VARCHAR (50) 	CHECK (UPPER(Status) IN ('BORROWED', 'RETURNED', 'EXTENDED','LATE RETURNED', 'SCRATCH', 'LOSS')) NOT NULL,
     FineID		CHAR (10) 	UNIQUE,
     PRIMARY KEY (LoanID, BookID),
     FOREIGN KEY (BookID) REFERENCES Book(BookID),

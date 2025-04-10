@@ -36,7 +36,7 @@ INSERT INTO Book VALUES ('BOK0000011', 'The Convenience Store by the Sea', 'Sono
 INSERT INTO Book VALUES ('BOK0000012', 'Computer Applications in Engineering and Management', 'Parveen Berwal', '9781032228716', '355.99', '2024', 'Programming', '3', 0, 0);
 INSERT INTO Book VALUES ('BOK0000013', 'Batik: Makers and Wearers', 'Lee Chor Lin', '9789811892073', '122.95', '2024', 'Fashion', '5', 0, 0);
 INSERT INTO Book VALUES ('BOK0000014', 'Codeless Data Structures and Algorithms', 'Subero Armstrong', '9781484257241', '249.00', '2020', 'Programming', '4', 0, 0);
-INSERT INTO Book VALUES ('BOK0000015', 'Lee Kuan Yew: One Man’s View of the World', 'Lee Kuan Yew', '9789814642910', '85.90', '2017', 'Historical', '8', 0, 0);
+INSERT INTO Book VALUES ('BOK0000015', 'Lee Kuan Yew: One Man''s View of the World', 'Lee Kuan Yew', '9789814642910', '85.90', '2017', 'Historical', '8', 0, 0);
 INSERT INTO Book VALUES ('BOK0000016', 'Wildlife Photography', 'Richard Bernabe', '9781781575123', '145.00', '2018', 'Photography', '8', 0, 0);
 INSERT INTO Book VALUES ('BOK0000017', 'Malayland', 'Dina Zaman', '9789819407262', '49.90', '2024', 'Historical', '10', 0, 0);
 INSERT INTO Book VALUES ('BOK0000018', 'Visual Analytics Fundamentals', 'Ryan Lindy', '9780137956821', '230.40', '2024', 'Programming', '5', 0, 0);
