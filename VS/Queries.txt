@@ -1,3 +1,113 @@
+-- Query 1 new
+SET LINESIZE 120;
+SET PAGESIZE 100;
+
+CREATE OR REPLACE VIEW vw_top_borrowed_genre_per_year AS
+SELECT EXTRACT(YEAR FROM l.LoanDate) AS LoanYear, b.Genre, COUNT(ld.BookID) AS TotalBorrowed
+FROM Loan l
+JOIN LoanDetail ld ON l.LoanID = ld.LoanID
+JOIN Book b ON b.BookID = ld.BookID
+GROUP BY EXTRACT(YEAR FROM l.LoanDate), b.Genre
+HAVING  COUNT(ld.BookID) = (
+        SELECT MAX(COUNT(ld2.BookID))
+        FROM Loan l2
+        JOIN LoanDetail ld2 ON l2.LoanID = ld2.LoanID
+        JOIN Book b2 ON b2.BookID = ld2.BookID
+        WHERE EXTRACT(YEAR FROM l2.LoanDate) = EXTRACT(YEAR FROM l.LoanDate)
+        GROUP BY b2.Genre
+    )
+ORDER BY LoanYear DESC;
+
+TTITLE LEFT '<<-Top Borrowed Genre Per Year->>' RIGHT 'PAGE:' FORMAT 999 SQL.PNO SKIP2
+REPFOOTER LEFT '-- END OF REPORT --'
+COLUMN LoanYear FORMAT A15 HEADING 'Year'
+COLUMN Genre FORMAT A40 HEADING 'Book Genre'
+COLUMN TotalBorrowed FORMAT 99999999999999 HEADING 'Total Borrowed'
+
+BREAK ON LoanYear SKIP 2 ON Genre ON TotalBorrowed
+COMPUTE COUNT LABEL 'No. of Genre: ' OF Genre ON LoanYear
+
+SELECT TO_CHAR(LoanYear) AS LoanYear, Genre, TotalBorrowed 
+FROM vw_top_borrowed_genre_per_year;
+
+CLEAR COLUMNS;
+CLEAR BREAKS;
+CLEAR COMPUTES;
+TTITLE OFF;
+
+
+
+-- Query 2 new latest
+SET LINESIZE 120;
+SET PAGESIZE 100;
+
+CREATE OR REPLACE VIEW vw_top_active_members_per_year AS
+SELECT 
+    EXTRACT(YEAR FROM l.LoanDate) AS LoanYear,
+    m.MemberID,
+    m.FirstName || ' ' || m.LastName AS FullName,
+    COUNT(l.LoanID) AS TotalLoans
+FROM Loan l
+JOIN Member m ON l.MemberID = m.MemberID
+GROUP BY EXTRACT(YEAR FROM l.LoanDate), m.MemberID, m.FirstName, m.LastName
+HAVING COUNT(l.LoanID) = (
+    SELECT MAX(COUNT(l2.LoanID))
+    FROM Loan l2
+    WHERE EXTRACT(YEAR FROM l2.LoanDate) = EXTRACT(YEAR FROM l.LoanDate)
+    GROUP BY l2.MemberID
+)
+ORDER BY LoanYear DESC;
+
+TTITLE LEFT '<<-Top Active Member(s) Per Year->>' RIGHT 'PAGE:' FORMAT 999 SQL.PNO SKIP 2
+REPFOOTER LEFT '-- END OF REPORT --'
+
+COLUMN LoanYear FORMAT A15 HEADING 'Year'
+COLUMN MemberID FORMAT A15 HEADING 'Member ID'
+COLUMN FullName FORMAT A40 HEADING 'Full Name'
+COLUMN TotalLoans FORMAT 99999999999999 HEADING 'Total Loans'
+
+BREAK ON LoanYear SKIP 2 ON MemberID ON FullName ON TotalLoans
+COMPUTE COUNT LABEL 'No. of Top Members: ' OF MemberID ON LoanYear
+
+SELECT TO_CHAR(LoanYear) AS LoanYear, MemberID, FullName, TotalLoans 
+FROM vw_top_active_members_per_year;
+
+CLEAR COLUMNS;
+CLEAR BREAKS;
+CLEAR COMPUTES;
+TTITLE OFF;
+
+
+
+
+-- Query 2 new
+-- This query supports department managers in monitoring facility demand trends on a monthly basis. It helps allocate staff, manage bookings, and plan maintenance or expansion based on peak usage patterns.
+SET LINESIZE 120;
+SET PAGESIZE 100;
+
+CREATE OR REPLACE VIEW vw_monthly_facility_usage AS
+SELECT f.FacilityID, f.Name, TO_CHAR(b.BookingDate, 'YYYY-MM') AS BookingMonth, COUNT(*) AS TotalBookings
+FROM Booking b
+JOIN Facility f ON b.FacilityID = f.FacilityID
+GROUP BY f.FacilityID, f.Name, TO_CHAR(b.BookingDate, 'YYYY-MM');
+ORDER BY BookingMonth DESC;
+
+TTITLE LEFT '<<-Monthly Facility Usage Summary by Facility Type->>' RIGHT 'PAGE:' FORMAT 999 SQL.PNO SKIP2
+REPFOOTER LEFT '-- END OF REPORT --'
+COLUMN BookingMonth FORMAT A15 HEADING 'Month'
+COLUMN Name FORMAT A60 HEADING 'Facility Name'
+COLUMN TotalBookings FORMAT 99999999999999 HEADING 'Total Bookings'
+
+SELECT BookingMonth, Name, TotalBookings
+FROM vw_monthly_facility_usage
+ORDER BY BookingMonth, TotalBookings DESC;
+
+CLEAR COLUMNS;
+CLEAR BREAKS;
+CLEAR COMPUTES;
+TTITLE OFF;
+
+
 -- Query 1: List of Members with Overdue Loans and Associated Fines
 -- The purpose of this query is to retrieve a list of members who have overdue loans and calculate the corresponding fine for each overdue book. It helps in identifying members who have not returned books on time and need to pay fines. The fine is calculated based on the number of days the book is overdue, as per the library's fine policy of RM2 per day. This query allows the library staff to easily track overdue loans and ensure that fines are accurately assessed and collected.
 
