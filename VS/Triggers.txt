@@ -56,6 +56,45 @@ BEGIN
 END;
 /
 
+CREATE OR REPLACE TRIGGER trg_update_extendedduedate
+BEFORE UPDATE OF ExtensionCount ON LoanDetail
+FOR EACH ROW
+DECLARE
+    v_base_due_date DATE;
+BEGIN
+	IF :NEW.ExtensionCount > 3 THEN
+		DBMS_OUTPUT.PUT_LINE('Loan extension limit reached for book: ' || :NEW.BookID);
+	END IF;
+	
+    SELECT DueDate INTO v_base_due_date
+    FROM Loan
+    WHERE LoanID = :NEW.LoanID;
+
+    :NEW.ExtendedDueDate := v_base_due_date + (:NEW.ExtensionCount * 7);
+END;
+/
+
+
+CREATE OR REPLACE TRIGGER trg_check_member_validity
+BEFORE INSERT ON Loan
+FOR EACH ROW
+DECLARE
+    v_today DATE := SYSDATE;
+    v_expiry DATE;
+BEGIN
+    SELECT EndDate INTO v_expiry
+    FROM Member
+    WHERE MemberID = :NEW.MemberID;
+
+    IF v_expiry < v_today THEN
+        RAISE_APPLICATION_ERROR(-20000, 'Member''s membership has expired.');
+    END IF;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20000, 'Member ID not found.');
+END;
+/
+
 
 
 -- trigger 

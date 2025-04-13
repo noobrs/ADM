@@ -164,3 +164,67 @@ BEGIN
     prc_extend_loan(NULL, 'BOK0000003');
 END;
 /
+
+
+
+
+-- Trigger 1
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE TRIGGER trg_update_membership
+AFTER INSERT ON MemberRenewal
+FOR EACH ROW
+DECLARE
+    v_newDuration        MemberRenewal.Duration%TYPE;
+    v_memberId           Member.MemberID%TYPE;
+    v_oldStartDate       Member.StartDate%TYPE;
+    v_oldEndDate         Member.EndDate%TYPE;
+BEGIN
+    IF (:NEW.InvoiceID IS NOT NULL) THEN
+        SELECT Duration, MemberID INTO v_newDuration, v_memberId
+        FROM MemberRenewal;
+        
+        SELECT StartDate, EndDate INTO v_oldStartDate, v_oldEndDate
+        FROM Member
+        WHERE MemberID = v_memberId;
+        
+        IF (v_oldEndDate > SYSDATE) THEN
+            UPDATE Member
+            SET
+                StartDate = SYSDATE,
+                 EndDate = ADD_MONTHS(v_oldEndDate, v_newDuration * 12)
+            WHERE MemberID = v_memberId;
+        ELSE
+            UPDATE Member
+            SET
+                StartDate = SYSDATE,
+                EndDate = ADD_MONTHS(SYSDATE, v_newDuration * 12)
+            WHERE MemberID = v_memberId;
+        END IF;
+    END IF;
+END;
+/
+
+
+-- Trigger 2
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE TRIGGER trg_check_member_validity
+BEFORE INSERT ON Loan
+FOR EACH ROW
+DECLARE
+    v_today DATE := SYSDATE;
+    v_expiry DATE;
+BEGIN
+    SELECT EndDate INTO v_expiry
+    FROM Member
+    WHERE MemberID = :NEW.MemberID;
+
+    IF v_expiry < v_today THEN
+        RAISE_APPLICATION_ERROR(-20000, 'Member''s membership has expired.');
+    END IF;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20000, 'Member ID not found.');
+END;
+/
