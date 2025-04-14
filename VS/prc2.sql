@@ -100,6 +100,8 @@ EXEC prc_loan_reserved_books ('RES0000101');
 -- ------------------------------------------------------------------------------------------------------------------------
 
 -- latest in docs!!!!
+SET SERVEROUTPUT ON;
+
 CREATE OR REPLACE PROCEDURE prc_loan_books (p_member_id IN CHAR, p_book_list IN VARCHAR) IS
     v_new_loan_id   Loan.LoanID%TYPE;
     v_loan_date     DATE := SYSDATE;
@@ -200,7 +202,7 @@ END;
 
 
 select * from book where bookid in ('BOK0000002', 'BOK0000003', 'BOK0000005');
-EXEC prc_loan_books('MEM0000005', '');
+EXEC prc_loan_books('MEM0000005', 'BOK0000010,BOK0000009,BOK0000011');
 
 
 

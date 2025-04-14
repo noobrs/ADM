@@ -1,3 +1,87 @@
+DROP TABLE LoanAudit;
+
+CREATE TABLE LoanAudit (
+    LoanID        CHAR(10),
+    MemberID      CHAR(10),
+    ActionType    VARCHAR(10),
+    ActionDate    TIMESTAMP,
+    OldLoanDate   DATE,
+    NewLoanDate   DATE,
+    OldDueDate    DATE,
+    NewDueDate    DATE,
+    PerformedBy   VARCHAR(100)
+);
+
+
+CREATE OR REPLACE TRIGGER trg_audit_loan_actions
+AFTER INSERT OR UPDATE OR DELETE ON Loan
+FOR EACH ROW
+BEGIN
+    IF INSERTING THEN
+        INSERT INTO LoanAudit (
+            LoanID, MemberID, ActionType, ActionDate, 
+            NewLoanDate, NewDueDate, PerformedBy
+        ) VALUES (
+            :NEW.LoanID, :NEW.MemberID, 'INSERT', SYSTIMESTAMP,
+            :NEW.LoanDate, :NEW.DueDate, USER
+        );
+
+    ELSIF UPDATING THEN
+        INSERT INTO LoanAudit (
+            LoanID, MemberID, ActionType, ActionDate,
+            OldLoanDate, NewLoanDate, OldDueDate, NewDueDate, PerformedBy
+        ) VALUES (
+            :OLD.LoanID, :OLD.MemberID, 'UPDATE', SYSTIMESTAMP,
+            :OLD.LoanDate, :NEW.LoanDate, :OLD.DueDate, :NEW.DueDate, USER
+        );
+
+    ELSIF DELETING THEN
+        INSERT INTO LoanAudit (
+            LoanID, MemberID, ActionType, ActionDate,
+            OldLoanDate, OldDueDate, PerformedBy
+        ) VALUES (
+            :OLD.LoanID, :OLD.MemberID, 'DELETE', SYSTIMESTAMP,
+            :OLD.LoanDate, :OLD.DueDate, USER
+        );
+    END IF;
+END;
+/
+
+UPDATE Loan
+SET DueDate = '2025-5-20' WHERE LoanID = 'LOA0000100';
+
+
+DELETE FROM LoanDetail WHERE LoanID = 'LOA0000100';
+DELETE FROM Loan WHERE LoanID = 'LOA0000100';
+
+
+---------------------------------------------------------------------------------------
+
+CREATE TABLE BookLoanAudit (
+    BookID         CHAR(10),
+    LoanID         CHAR(10),
+    ActionType     VARCHAR2(20),
+    ActionDate     DATE,
+    PerformedBy    VARCHAR2(50)
+);
+
+
+CREATE OR REPLACE TRIGGER trg_borrowed_count
+AFTER INSERT ON LoanDetail
+FOR EACH ROW
+BEGIN
+    UPDATE Book
+    SET BorrowedCount = NVL(BorrowedCount, 0) + 1
+    WHERE BookID = :NEW.BookID;
+
+    INSERT INTO BookLoanAudit (BookID, LoanID, ActionType, ActionDate, PerformedBy)
+    VALUES (:NEW.BookID, :NEW.LoanID, 'BORROW', SYSDATE, USER);
+END;
+/
+
+
+
+
 -- Trigger 1: check if member loaning books exceed defined limit
 -- The purpose of this trigger is to ensure that a member can borrow or reserve at most 5 books per loan or reservation. It applies the rule to both the LoanDetail and ReservationDetail tables, ensuring that the limit is enforced individually for loans and reservations.
 SET SERVEROUTPUT ON;
