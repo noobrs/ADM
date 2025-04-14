@@ -153,6 +153,7 @@ CREATE TABLE ReservationDetail (
 COMMIT;
 
 DROP SEQUENCE loan_seq;
+DROP SEQUENCE book_seq;
 
 CREATE SEQUENCE loan_seq
 MINVALUE 1
@@ -160,6 +161,14 @@ MAXVALUE 9999999
 START WITH 1
 INCREMENT BY 1
 NOCACHE;
+
+CREATE SEQUENCE book_seq
+MINVALUE 1
+MAXVALUE 9999999
+START WITH 1
+INCREMENT BY 1
+NOCACHE;
+
 
 -- Member Records
 ALTER SESSION SET NLS_DATE_FORMAT='YYYY-MM-DD';
@@ -217,26 +226,26 @@ INSERT INTO Member VALUES ('MEM0000050', 'Gabriel', 'Rogers', '1990-02-14', '019
 
 
 -- Book Records
-INSERT INTO Book VALUES ('BOK0000001', 'The Alchemist', 'Paulo Coelho', '9780061122415', '35.90', '1998', 'Adventure', '20', '18', '15');
-INSERT INTO Book VALUES ('BOK0000002', '1984', 'George Orwell', '9780451524935', '27.90', '1949', 'Fiction', '15', '12', '17');
-INSERT INTO Book VALUES ('BOK0000003', 'To Kill a Mockingbird', 'Harper Lee', '9780061120084', '29.90', '1960', 'Classic', '18', '16', '15');
-INSERT INTO Book VALUES ('BOK0000004', 'The Great Gatsby', 'F. Scott Fitzgerald', '9780743273565', '28.50', '1925', 'Classic', '11', '10', '13');
-INSERT INTO Book VALUES ('BOK0000005', 'Selfie Girl', 'Gaou', '9784046050922', '200.00', '2020', 'Art', '11', '10', '16');
-INSERT INTO Book VALUES ('BOK0000006', 'Sherlock Holmes : The Complete Novels and Stories Vol.1', 'Sir Doyle Arthur Conan', '9780553212419', '37.95', '1986', 'Novel', '12', '10', '17');
-INSERT INTO Book VALUES ('BOK0000007', 'The Silent Patient', 'Alex Michaelides', '9781250301697', '67.50', '2019', 'Thriller', '20', '19', '15');
-INSERT INTO Book VALUES ('BOK0000008', 'The Hunger Games', 'Suzanne Collins', '9780439023528', '48.00', '2008', 'Dystopian', '20', '18', '13');
-INSERT INTO Book VALUES ('BOK0000009', 'Circe', 'Madeline Miller', '9780316556347', '79.50', '2018', 'Fantasy', '13', '11', '14');
-INSERT INTO Book VALUES ('BOK0000010', 'Suzume', 'Shinkai Makoto', '9781975373061', '108.40', '2023', 'Novel', '17', '15', '16');
-INSERT INTO Book VALUES ('BOK0000011', 'The Convenience Store by the Sea', 'Sonoko Machida', '9781398722774', '69.90', '2025', 'Fiction', '19', '17', '15');
-INSERT INTO Book VALUES ('BOK0000012', 'Computer Applications in Engineering and Management', 'Parveen Berwal', '9781032228716', '355.99', '2024', 'Programming', '15', '13', '16');
-INSERT INTO Book VALUES ('BOK0000013', 'Batik: Makers and Wearers', 'Lee Chor Lin', '9789811892073', '122.95', '2024', 'Fashion', '12', '10', '13');
-INSERT INTO Book VALUES ('BOK0000014', 'Codeless Data Structures and Algorithms', 'Subero Armstrong', '9781484257241', '249.00', '2020', 'Programming', '16', '15', '13');
-INSERT INTO Book VALUES ('BOK0000015', 'Lee Kuan Yew: One Man''s View of the World', 'Lee Kuan Yew', '9789814642910', '85.90', '2017', 'Historical', '13', '12', '13');
-INSERT INTO Book VALUES ('BOK0000016', 'Wildlife Photography', 'Richard Bernabe', '9781781575123', '145.00', '2018', 'Photography', '17', '15', '16');
-INSERT INTO Book VALUES ('BOK0000017', 'Malayland', 'Dina Zaman', '9789819407262', '49.90', '2024', 'Historical', '14', '11', '17');
-INSERT INTO Book VALUES ('BOK0000018', 'Visual Analytics Fundamentals', 'Ryan Lindy', '9780137956821', '230.40', '2024', 'Programming', '18', '16', '16');
-INSERT INTO Book VALUES ('BOK0000019', 'The Spirit Bares Its Teeth', 'Andrew Joseph White', '9781837840724', '69.90', '2024', 'Horror', '15', '12', '17');
-INSERT INTO Book VALUES ('BOK0000020', 'Unix in Easy Steps', 'Mike McGrath', '9781840786224', '61.45', '2014', 'Programming', '11', '11', '13');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'The Alchemist', 'Paulo Coelho', '9780061122415', '35.90', '1998', 'Adventure', '20', '18', '15');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), '1984', 'George Orwell', '9780451524935', '27.90', '1949', 'Fiction', '15', '12', '17');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'To Kill a Mockingbird', 'Harper Lee', '9780061120084', '29.90', '1960', 'Classic', '18', '16', '15');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'The Great Gatsby', 'F. Scott Fitzgerald', '9780743273565', '28.50', '1925', 'Classic', '11', '10', '13');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'Selfie Girl', 'Gaou', '9784046050922', '200.00', '2020', 'Art', '11', '10', '16');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'Sherlock Holmes : The Complete Novels and Stories Vol.1', 'Sir Doyle Arthur Conan', '9780553212419', '37.95', '1986', 'Novel', '12', '10', '17');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'The Silent Patient', 'Alex Michaelides', '9781250301697', '67.50', '2019', 'Thriller', '20', '19', '15');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'The Hunger Games', 'Suzanne Collins', '9780439023528', '48.00', '2008', 'Dystopian', '20', '18', '13');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'Circe', 'Madeline Miller', '9780316556347', '79.50', '2018', 'Fantasy', '13', '11', '14');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'Suzume', 'Shinkai Makoto', '9781975373061', '108.40', '2023', 'Novel', '17', '15', '16');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'The Convenience Store by the Sea', 'Sonoko Machida', '9781398722774', '69.90', '2025', 'Fiction', '19', '17', '15');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'Computer Applications in Engineering and Management', 'Parveen Berwal', '9781032228716', '355.99', '2024', 'Programming', '15', '13', '16');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'Batik: Makers and Wearers', 'Lee Chor Lin', '9789811892073', '122.95', '2024', 'Fashion', '12', '10', '13');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'Codeless Data Structures and Algorithms', 'Subero Armstrong', '9781484257241', '249.00', '2020', 'Programming', '16', '15', '13');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'Lee Kuan Yew: One Man''s View of the World', 'Lee Kuan Yew', '9789814642910', '85.90', '2017', 'Historical', '13', '12', '13');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'Wildlife Photography', 'Richard Bernabe', '9781781575123', '145.00', '2018', 'Photography', '17', '15', '16');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'Malayland', 'Dina Zaman', '9789819407262', '49.90', '2024', 'Historical', '14', '11', '17');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'Visual Analytics Fundamentals', 'Ryan Lindy', '9780137956821', '230.40', '2024', 'Programming', '18', '16', '16');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'The Spirit Bares Its Teeth', 'Andrew Joseph White', '9781837840724', '69.90', '2024', 'Horror', '15', '12', '17');
+INSERT INTO Book VALUES ('BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'), 'Unix in Easy Steps', 'Mike McGrath', '9781840786224', '61.45', '2014', 'Programming', '11', '11', '13');
 
 
 -- Facility Records
