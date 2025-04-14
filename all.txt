@@ -152,6 +152,12 @@ CREATE TABLE ReservationDetail (
 
 COMMIT;
 
+DROP INDEX loan_date_idx;
+CREATE INDEX loan_date_idx ON Loan (LoanDate);
+
+DROP INDEX loan_duedate_idx;
+CREATE INDEX loan_duedate_idx ON Loan (DueDate);
+
 DROP SEQUENCE loan_seq;
 DROP SEQUENCE book_seq;
 
