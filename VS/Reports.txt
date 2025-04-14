@@ -1,238 +1,173 @@
--- Detailed Report 1: Member Loan and Reservation History Report
--- This procedure generates a detailed report showing the loan and reservation history for a given member. The report includes information on books borrowed by the member, due dates, loan statuses, return dates, fines (if any), and details on their reserved books, reservation statuses, and pickup dates. This procedure provides comprehensive insights into a member's borrowing and reservation activities, helping library staff track overdue books, pending returns, and active reservations for efficient library management. It is useful for auditing, customer service, and member account management.
-CREATE OR REPLACE PROCEDURE rpt_member_loan_res_history (p_MemberID IN Member.MemberID%TYPE) IS
-  CURSOR loan_cursor IS
-    SELECT ld.LoanDetailID, b.Title, l.DueDate, ld.Status AS LoanStatus, ld.ReturnDate, f.FineAmount
-    FROM LoanDetail ld
-    JOIN Loan l ON ld.LoanID = l.LoanID
-    JOIN Book b ON ld.BookID = b.BookID
-    LEFT JOIN Fine f ON ld.FineID = f.FineID
-    WHERE l.MemberID = p_MemberID AND UPPER(ld.Status) IN ('BORROWED', 'RETURNED', 'LATE RETURNED');
-  
-  CURSOR reservation_cursor IS
-    SELECT rd.ReservationDetailID, b.BookTitle, r.ReservationDate, rd.Status AS ReservationStatus, r.PickupDate
-    FROM ReservationDetail rd
-    JOIN Reservation r ON rd.ReservationID = r.ReservationID
-    JOIN Book b ON rd.BookID = b.BookID
-    WHERE r.MemberID = p_MemberID AND UPPER(rd.Status) IN ('AVAILABLE', 'NOT AVAILABLE');
-  
-  v_loan_record loan_cursor%ROWTYPE;
-  v_reservation_record reservation_cursor%ROWTYPE;
-BEGIN
-  DBMS_OUTPUT.PUT_LINE('Loan History for Member ' || p_MemberID);
-  DBMS_OUTPUT.PUT_LINE('-------------------------------------------');
-  
-  OPEN loan_cursor;
-  LOOP
-    FETCH loan_cursor INTO v_loan_record;
-    EXIT WHEN loan_cursor%NOTFOUND;
-    
-    DBMS_OUTPUT.PUT_LINE('Loan ID: ' || v_loan_record.LoanDetailID || 
-                         ', Book: ' || v_loan_record.Title ||
-                         ', Due Date: ' || v_loan_record.DueDate ||
-                         ', Status: ' || v_loan_record.LoanStatus ||
-                         ', Return Date: ' || COALESCE(v_loan_record.ReturnDate, 'N/A') ||
-                         ', Fine: RM ' || COALESCE(v_loan_record.FineAmount, 0));
-  END LOOP;
-  CLOSE loan_cursor;
-  
-  DBMS_OUTPUT.PUT_LINE('Reservation History for Member ' || p_MemberID);
-  DBMS_OUTPUT.PUT_LINE('-------------------------------------------');
-  
-  OPEN reservation_cursor;
-  LOOP
-    FETCH reservation_cursor INTO v_reservation_record;
-    EXIT WHEN reservation_cursor%NOTFOUND;
-    
-    DBMS_OUTPUT.PUT_LINE('Reservation ID: ' || v_reservation_record.ReservationDetailID ||
-                         ', Book: ' || v_reservation_record.BookTitle ||
-                         ', Reservation Date: ' || v_reservation_record.ReservationDate ||
-                         ', Status: ' || v_reservation_record.ReservationStatus ||
-                         ', Pickup Date: ' || COALESCE(v_reservation_record.PickupDate, 'N/A'));
-  END LOOP;
-  CLOSE reservation_cursor;
-END;
-/
-
-
-
--- Summary Report: Monthly Member Loan and Reservation Summary
--- The procedure generates a summary report that offers an overview of the loan and reservation activities for all members during a specified month. This report includes key metrics such as the total number of loans for each member within the given month, the total number of reservations made, and any fines that may have been accrued for overdue books. The summary is valuable for library administrators and staff, as it allows them to track member activity, understand trends in borrowing and reservations, and assess any outstanding fines. Additionally, the report helps with financial tracking, providing insights into overdue book fines and unpaid amounts, which can assist in overall library management and decision-making.
-CREATE OR REPLACE PROCEDURE proc_monthly_member_summary (
-  p_Month IN NUMBER,          -- The month for the report (e.g., 1 for January, 12 for December)
-  p_Year  IN NUMBER           -- The year for the report
-) IS
-  CURSOR summary_cursor IS
-    SELECT 
-      m.MemberID,
-      m.Name,
-      COUNT(DISTINCT ld.LoanDetailID) AS TotalLoans,
-      COUNT(DISTINCT rd.ReservationDetailID) AS TotalReservations,
-      SUM(CASE WHEN f.FineAmount IS NOT NULL THEN f.FineAmount ELSE 0 END) AS TotalFines
-    FROM Member m
-    LEFT JOIN Loan l ON m.MemberID = l.MemberID
-    LEFT JOIN LoanDetail ld ON l.LoanID = ld.LoanID
-    LEFT JOIN Reservation r ON m.MemberID = r.MemberID
-    LEFT JOIN ReservationDetail rd ON r.ReservationID = rd.ReservationID
-    LEFT JOIN Fine f ON ld.FineID = f.FineID
-    WHERE EXTRACT(MONTH FROM l.LoanDate) = p_Month
-      AND EXTRACT(YEAR FROM l.LoanDate) = p_Year
-      OR EXTRACT(MONTH FROM r.ReservationDate) = p_Month
-      AND EXTRACT(YEAR FROM r.ReservationDate) = p_Year
-    GROUP BY m.MemberID, m.Name;
-  
-  v_summary_record summary_cursor%ROWTYPE;
-BEGIN
-  -- Print Header for Monthly Summary Report
-  DBMS_OUTPUT.PUT_LINE('Monthly Member Loan and Reservation Summary for ' || p_Month || '/' || p_Year);
-  DBMS_OUTPUT.PUT_LINE('-------------------------------------------');
-  DBMS_OUTPUT.PUT_LINE('Member ID | Member Name | Total Loans | Total Reservations | Total Fines (RM)');
-  
-  -- Loop through the summary records and output
-  OPEN summary_cursor;
-  LOOP
-    FETCH summary_cursor INTO v_summary_record;
-    EXIT WHEN summary_cursor%NOTFOUND;
-    
-    DBMS_OUTPUT.PUT_LINE(v_summary_record.MemberID || ' | ' || v_summary_record.Name || 
-                         ' | ' || v_summary_record.TotalLoans || 
-                         ' | ' || v_summary_record.TotalReservations || 
-                         ' | RM ' || v_summary_record.TotalFines);
-  END LOOP;
-  CLOSE summary_cursor;
-END proc_monthly_member_summary;
-/
-
-
------------------------------
-
+SET SERVEROUTPUT ON;
+SET LINESIZE 120
+SET PAGESIZE 120
 
 CREATE OR REPLACE PROCEDURE prc_member_loan_summary (p_start_date IN DATE, p_end_date IN DATE) IS
+
     CURSOR member_cur IS
-        SELECT m.MemberID, m.FirstName, m.LastName
-        FROM Member m;
+        SELECT MemberID, FirstName, LastName
+        FROM Member
+        ORDER BY MemberID;
 
     CURSOR loan_count_cur(p_member_id Member.MemberID%TYPE) IS
         SELECT COUNT(*) AS total_loans
         FROM Loan
         WHERE MemberID = p_member_id
         AND LoanDate BETWEEN p_start_date AND p_end_date;
-        
+
+    CURSOR book_count_cur(p_member_id Member.MemberID%TYPE) IS
+        SELECT COUNT(*) AS total_books
+        FROM LoanDetail ld
+        JOIN Loan l ON l.LoanID = ld.LoanID
+        WHERE l.MemberID = p_member_id
+        AND l.LoanDate BETWEEN p_start_date AND p_end_date;
+
+    member_rec member_cur%ROWTYPE;
     v_total_loans NUMBER;
+    v_total_books NUMBER;
+	v_grand_total_loans NUMBER := 0;
+    v_grand_total_books NUMBER := 0;
+    v_grand_total_members NUMBER := 0;
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('==========================================');
-    DBMS_OUTPUT.PUT_LINE('        Member Loan Summary Report        ');
-    DBMS_OUTPUT.PUT_LINE('    From ' || TO_CHAR(p_start_date, 'DD-MON-YYYY') || ' To ' || TO_CHAR(p_end_date, 'DD-MON-YYYY'));
-    DBMS_OUTPUT.PUT_LINE('==========================================');
-
-    FOR m IN member_cur LOOP
-        OPEN loan_count_cur(m.MemberID);
-        FETCH loan_count_cur INTO v_total_loans;
-        CLOSE loan_count_cur;
-
-        DBMS_OUTPUT.PUT_LINE('Member ID   : ' || m.MemberID);
-        DBMS_OUTPUT.PUT_LINE('Name        : ' || m.FirstName || ' ' || m.LastName);
-        DBMS_OUTPUT.PUT_LINE('Total Loans : ' || v_total_loans);
-        DBMS_OUTPUT.PUT_LINE('------------------------------------------');
-    END LOOP;
-END;
-/
-
-CREATE OR REPLACE PROCEDURE prc_member_loan_summary (
-    p_start_date IN DATE,
-    p_end_date   IN DATE
-)
-IS
-    -- Cursor to retrieve all members
-    CURSOR member_cur IS
-        SELECT m.MemberID, m.FirstName, m.LastName
-        FROM Member m;
-
-    -- Cursor to count loans by member between date range
-    CURSOR loan_count_cur(p_member_id Member.MemberID%TYPE) IS
-        SELECT COUNT(*) AS total_loans
-        FROM Loan
-        WHERE MemberID = p_member_id
-        AND LoanDate BETWEEN p_start_date AND p_end_date;
-
-    -- Variable to store total loans for each member
-    v_total_loans NUMBER;
-BEGIN
-    -- Report Header
-    DBMS_OUTPUT.PUT_LINE(RPAD('=', 50, '='));
-    DBMS_OUTPUT.PUT_LINE('             MEMBER LOAN SUMMARY REPORT             ');
-    DBMS_OUTPUT.PUT_LINE('   Period: ' || TO_CHAR(p_start_date, 'DD-MON-YYYY') || 
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 90, '='));
+    DBMS_OUTPUT.PUT_LINE(LPAD('MEMBER LOAN SUMMARY REPORT', 55));
+    DBMS_OUTPUT.PUT_LINE('Period: ' || TO_CHAR(p_start_date, 'DD-MON-YYYY') || 
                          ' to ' || TO_CHAR(p_end_date, 'DD-MON-YYYY'));
-    DBMS_OUTPUT.PUT_LINE(RPAD('=', 50, '='));
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 90, '='));
 
-    -- Loop through each member
-    FOR m IN member_cur LOOP
-        -- Get total loans for current member
-        OPEN loan_count_cur(m.MemberID);
+    DBMS_OUTPUT.PUT_LINE(RPAD('Member ID', 15) || RPAD('Name', 30) || 
+                         RPAD('Total Loans', 15) || 'Total Books');
+    DBMS_OUTPUT.PUT_LINE(RPAD('-', 90, '-'));
+
+    OPEN member_cur;
+    LOOP
+        FETCH member_cur INTO member_rec;
+        EXIT WHEN member_cur%NOTFOUND;
+
+        OPEN loan_count_cur(member_rec.MemberID);
         FETCH loan_count_cur INTO v_total_loans;
         CLOSE loan_count_cur;
+	
+		IF v_total_loans = 0 THEN
+            CONTINUE;
+        END IF;
+	
+        OPEN book_count_cur(member_rec.MemberID);
+        FETCH book_count_cur INTO v_total_books;
+        CLOSE book_count_cur;
 
-        -- Print member's loan summary
-        DBMS_OUTPUT.PUT_LINE('Member ID   : ' || m.MemberID);
-        DBMS_OUTPUT.PUT_LINE('Name        : ' || m.FirstName || ' ' || m.LastName);
-        DBMS_OUTPUT.PUT_LINE('Total Loans : ' || v_total_loans);
-        DBMS_OUTPUT.PUT_LINE(RPAD('-', 50, '-'));
+        DBMS_OUTPUT.PUT_LINE(
+            RPAD(member_rec.MemberID, 15) ||
+            RPAD(member_rec.FirstName || ' ' || member_rec.LastName, 30) ||
+            RPAD(v_total_loans, 15) ||
+            v_total_books
+        );
+		
+		v_grand_total_members := v_grand_total_members + 1;
+        v_grand_total_loans := v_grand_total_loans + v_total_loans;
+        v_grand_total_books := v_grand_total_books + v_total_books;
     END LOOP;
-    
-    -- Footer
-    DBMS_OUTPUT.PUT_LINE(RPAD('=', 50, '='));
-    DBMS_OUTPUT.PUT_LINE('END OF REPORT');
-    DBMS_OUTPUT.PUT_LINE(RPAD('=', 50, '='));
+    CLOSE member_cur;
+
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 90, '='));
+    DBMS_OUTPUT.PUT_LINE(LPAD('SUMMARY TOTALS', 55));
+    DBMS_OUTPUT.PUT_LINE(RPAD('-', 90, '-'));
+    DBMS_OUTPUT.PUT_LINE('Total Members with Loans : ' || v_grand_total_members);
+    DBMS_OUTPUT.PUT_LINE('Total Loans Issued       : ' || v_grand_total_loans);
+    DBMS_OUTPUT.PUT_LINE('Total Books Loaned       : ' || v_grand_total_books);
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 90, '='));
+    DBMS_OUTPUT.PUT_LINE(LPAD('END OF REPORT', 55));
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 90, '='));
 END;
 /
 
 
+
+ALTER SESSION SET NLS_DATE_FORMAT='YYYY-MM-DD';
 EXEC prc_member_loan_summary('2024-1-1', '2025-1-1');
 
 
+------------------------------------------------------------------------------------------------
 
+SET SERVEROUTPUT ON;
+SET LINESIZE 120
+SET PAGESIZE 120
 
+CREATE OR REPLACE PROCEDURE prc_member_loan_detail(p_member_id IN CHAR) IS
+    v_loan_id Loan.LoanID%TYPE;
 
-
-
-CREATE OR REPLACE PROCEDURE prc_member_loan_detail (p_member_id IN CHAR)
-IS
     CURSOR loan_cur IS
         SELECT LoanID, LoanDate, DueDate
         FROM Loan
         WHERE MemberID = p_member_id
         ORDER BY LoanDate DESC;
 
-    CURSOR loan_detail_cur(p_loan_id Loan.LoanID%TYPE) IS
-        SELECT ld.BookID, b.Title, ld.Status, NVL(ld.ExtendedDueDate, l.DueDate) AS CurrentDueDate
+    CURSOR loan_detail_cur IS
+        SELECT ld.BookID, b.Title, ld.Status,
+               NVL(ld.ExtendedDueDate, l.DueDate) AS CurrentDueDate
         FROM LoanDetail ld
         JOIN Book b ON b.BookID = ld.BookID
         JOIN Loan l ON l.LoanID = ld.LoanID
-        WHERE ld.LoanID = p_loan_id;
+        WHERE ld.LoanID = v_loan_id;
+
+    loan_rec loan_cur%ROWTYPE;
+    detail_rec loan_detail_cur%ROWTYPE;
+	v_total_loan 	NUMBER(3);
+	v_total_book 	NUMBER(1);
+
 BEGIN
     DBMS_OUTPUT.PUT_LINE(RPAD('=', 100, '='));
-     DBMS_OUTPUT.PUT_LINE(LPAD('MEMBER LOAN DETAIL REPORT', 60));
+    DBMS_OUTPUT.PUT_LINE(LPAD('MEMBER LOAN DETAIL REPORT', 60));
     DBMS_OUTPUT.PUT_LINE(LPAD('Generated on: ' || TO_CHAR(SYSDATE, 'DD-MON-YYYY HH:MI AM'), 70));
     DBMS_OUTPUT.PUT_LINE(RPAD('-', 100, '-'));
     DBMS_OUTPUT.PUT_LINE('Member ID : ' || p_member_id);
     DBMS_OUTPUT.PUT_LINE(RPAD('=', 100, '='));
 
-    FOR l IN loan_cur LOOP
-        DBMS_OUTPUT.PUT_LINE('Loan ID    : ' || l.LoanID);
-        DBMS_OUTPUT.PUT_LINE('Loan Date  : ' || TO_CHAR(l.LoanDate, 'DD-MON-YYYY'));
-        DBMS_OUTPUT.PUT_LINE('Due Date   : ' || TO_CHAR(l.DueDate, 'DD-MON-YYYY'));
+    OPEN loan_cur;
+	v_total_loan := 0;
+    LOOP
+        FETCH loan_cur INTO loan_rec;
+        EXIT WHEN loan_cur%NOTFOUND;
+
+        v_loan_id := loan_rec.LoanID;
+
+        DBMS_OUTPUT.PUT_LINE('Loan ID    : ' || loan_rec.LoanID);
+        DBMS_OUTPUT.PUT_LINE('Loan Date  : ' || TO_CHAR(loan_rec.LoanDate, 'DD-MON-YYYY'));
+        DBMS_OUTPUT.PUT_LINE('Due Date   : ' || TO_CHAR(loan_rec.DueDate, 'DD-MON-YYYY'));
         DBMS_OUTPUT.PUT_LINE(RPAD('-', 100, '-'));
         DBMS_OUTPUT.PUT_LINE(RPAD('Book ID', 15) || RPAD('Title', 50) || RPAD('Status', 15) || 'Due Date');
         DBMS_OUTPUT.PUT_LINE(RPAD('-', 100, '-'));
 
-        FOR d IN loan_detail_cur(l.LoanID) LOOP
-            DBMS_OUTPUT.PUT_LINE(RPAD(d.BookID, 15) || RPAD(d.Title, 50) || RPAD(d.Status, 15) || TO_CHAR(d.CurrentDueDate, 'DD-MON-YYYY'));
+        OPEN loan_detail_cur;
+		v_total_book := 0;
+		
+        LOOP
+			
+            FETCH loan_detail_cur INTO detail_rec;
+            EXIT WHEN loan_detail_cur%NOTFOUND;
+
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD(detail_rec.BookID, 15) ||
+                RPAD(detail_rec.Title, 50) ||
+                RPAD(detail_rec.Status, 15) ||
+                TO_CHAR(detail_rec.CurrentDueDate, 'DD-MON-YYYY')
+            );
+			
+			v_total_book:= v_total_book + 1;
         END LOOP;
+        CLOSE loan_detail_cur;
 
         DBMS_OUTPUT.PUT_LINE(RPAD('-', 100, '-'));
-		DBMS_OUTPUT.PUT_LINE(CHR(10));
+		DBMS_OUTPUT.PUT_LINE('Total of Books: ' || v_total_book);
+        DBMS_OUTPUT.PUT_LINE(CHR(10));
+		v_total_loan := v_total_loan + 1;
     END LOOP;
+    CLOSE loan_cur;
+
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 100, '='));
+	DBMS_OUTPUT.PUT_LINE('Total of Loans: ' || v_total_loan);
 END;
 /
 
-EXEC prc_member_loan_detail('MEM0000043');
+
+EXEC prc_member_loan_detail('MEM0000011');

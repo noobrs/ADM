@@ -25,7 +25,7 @@ BEGIN
 
     ELSIF UPDATING THEN
 	
-        v_actionStr := 'Loan ID: ' :OLD.LoanID || ' -> ' || :NEW.LoanID ||
+        v_actionStr := 'Loan ID: ' || :OLD.LoanID || ' -> ' || :NEW.LoanID ||
 		'Member ID: ' || :OLD.MemberID || ' -> ' || :NEW.MemberID || 
 		', Loan Date: ' || OLD.LoanDate || ' -> ' || :NEW.LoanDate ||
 		', Due Date: ' || OLD.DueDate || '->' || :NEW.DueDate;
@@ -82,7 +82,7 @@ BEGIN
 		
 		v_actionStr := 'Return Date: ' || :NEW.ReturnDate || 
 		', Extension Count: ' || :NEW.ExtensionCount || 
-		', Extended Due Date: ' :NEW.ExtendedDueDate || 
+		', Extended Due Date: ' || :NEW.ExtendedDueDate || 
 		', Status: ' || :NEW.Status;
 
 		INSERT INTO LoanDetailAudit (BookID, LoanID, ActionDate, ActionType, ActionDesc, PerformedBy)
@@ -106,7 +106,7 @@ BEGIN
 		', Loan ID: ' || :OLD.LoanID || ' -> ' || :NEW.LoanID ||
 		'Return Date: ' || :OLD.ReturnDate || ' -> ' || :NEW.ReturnDate || 
 		', Extension Count: ' || :OLD.ExtensionCount || ' -> ' || :NEW.ExtensionCount || 
-		', Extended Due Date: ' || :OLD.ExtendedDueDate || ' -> ' :NEW.ExtendedDueDate || 
+		', Extended Due Date: ' || :OLD.ExtendedDueDate || ' -> ' || :NEW.ExtendedDueDate || 
 		', Status: ' || :OLD.Status || ' -> ' || :NEW.Status;
 
 		INSERT INTO LoanDetailAudit (BookID, LoanID, ActionDate, ActionType, ActionDesc, PerformedBy)
@@ -121,7 +121,7 @@ BEGIN
 		
 		v_actionStr := 'Return Date: ' || :OLD.ReturnDate || 
 		', Extension Count: ' || :OLD.ExtensionCount || 
-		', Extended Due Date: ' :OLD.ExtendedDueDate || 
+		', Extended Due Date: ' || :OLD.ExtendedDueDate || 
 		', Status: ' || :OLD.Status;
 
 		INSERT INTO LoanDetailAudit (BookID, LoanID, ActionDate, ActionType, ActionDesc, PerformedBy)

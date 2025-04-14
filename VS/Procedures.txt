@@ -125,6 +125,7 @@ EXEC prc_loan_books('MEM0000001', 'ABC');
 
 
 -- Procedure 2
+SET SERVEROUTPUT ON;
 
 CREATE OR REPLACE PROCEDURE prc_extend_loan (v_loan_id IN CHAR, v_book_id IN CHAR) IS
     v_current_due_date DATE;
@@ -149,9 +150,9 @@ BEGIN
         WHERE LoanID = v_loan_id AND BookID = v_book_id;
 
         COMMIT;
-        RAISE_APPLICATION_ERROR(-20000, 'Loan extended successfully. New due date: ' || (v_current_due_date + 7));
+        DBMS_OUTPUT.PUT_LINE('Loan extended successfully. New due date: ' || (v_current_due_date + 7));
     ELSE
-        RAISE_APPLICATION_ERROR(-20000, 'Extension limit reached for this book.');
+        RAISE_APPLICATION_aERROR(-20000, 'Extension limit reached for this book.');
     END IF;
 
 EXCEPTION
