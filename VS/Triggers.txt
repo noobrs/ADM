@@ -2,47 +2,46 @@ DROP TABLE LoanAudit;
 
 CREATE TABLE LoanAudit (
     LoanID        CHAR(10),
-    MemberID      CHAR(10),
+	ActionDate    TIMESTAMP,
     ActionType    VARCHAR(10),
-    ActionDate    TIMESTAMP,
-    OldLoanDate   DATE,
-    NewLoanDate   DATE,
-    OldDueDate    DATE,
-    NewDueDate    DATE,
+	ActionDesc     VARCHAR(200),
     PerformedBy   VARCHAR(100)
 );
-
 
 CREATE OR REPLACE TRIGGER trg_audit_loan_actions
 AFTER INSERT OR UPDATE OR DELETE ON Loan
 FOR EACH ROW
+DECLARE
+	v_actionStr 	VARCHAR(200);
 BEGIN
     IF INSERTING THEN
-        INSERT INTO LoanAudit (
-            LoanID, MemberID, ActionType, ActionDate, 
-            NewLoanDate, NewDueDate, PerformedBy
-        ) VALUES (
-            :NEW.LoanID, :NEW.MemberID, 'INSERT', SYSTIMESTAMP,
-            :NEW.LoanDate, :NEW.DueDate, USER
-        );
+	
+		v_actionStr := 'Member ID: ' || :NEW.MemberID || 
+		', Loan Date: ' || :NEW.LoanDate ||
+		', Due Date: ' || :NEW.DueDate;
+		
+        INSERT INTO LoanAudit (LoanID, ActionDate, ActionType, ActionDesc, PerformedBy) 
+		VALUES (:NEW.LoanID, SYSTIMESTAMP, 'INSERT', v_actionStr, USER);
 
     ELSIF UPDATING THEN
-        INSERT INTO LoanAudit (
-            LoanID, MemberID, ActionType, ActionDate,
-            OldLoanDate, NewLoanDate, OldDueDate, NewDueDate, PerformedBy
-        ) VALUES (
-            :OLD.LoanID, :OLD.MemberID, 'UPDATE', SYSTIMESTAMP,
-            :OLD.LoanDate, :NEW.LoanDate, :OLD.DueDate, :NEW.DueDate, USER
-        );
+	
+        v_actionStr := 'Loan ID: ' :OLD.LoanID || ' -> ' || :NEW.LoanID ||
+		'Member ID: ' || :OLD.MemberID || ' -> ' || :NEW.MemberID || 
+		', Loan Date: ' || OLD.LoanDate || ' -> ' || :NEW.LoanDate ||
+		', Due Date: ' || OLD.DueDate || '->' || :NEW.DueDate;
+		
+        INSERT INTO LoanAudit (LoanID, ActionDate, ActionType, ActionDesc, PerformedBy) 
+		VALUES (:NEW.LoanID, SYSTIMESTAMP, 'UPDATE', v_actionStr, USER);
 
     ELSIF DELETING THEN
-        INSERT INTO LoanAudit (
-            LoanID, MemberID, ActionType, ActionDate,
-            OldLoanDate, OldDueDate, PerformedBy
-        ) VALUES (
-            :OLD.LoanID, :OLD.MemberID, 'DELETE', SYSTIMESTAMP,
-            :OLD.LoanDate, :OLD.DueDate, USER
-        );
+        
+		v_actionStr := 'Member ID: ' || :OLD.MemberID || 
+		', Loan Date: ' || :OLD.LoanDate ||
+		', Due Date: ' || :OLD.DueDate;
+		
+        INSERT INTO LoanAudit (LoanID, ActionDate, ActionType, ActionDesc, PerformedBy) 
+		VALUES (:OLD.LoanID, SYSTIMESTAMP, 'DELETE', v_actionStr, USER);
+		
     END IF;
 END;
 /
@@ -57,107 +56,84 @@ DELETE FROM Loan WHERE LoanID = 'LOA0000100';
 
 ---------------------------------------------------------------------------------------
 
-CREATE TABLE BookLoanAudit (
+DROP TABLE LoanDetailAudit;
+
+CREATE TABLE LoanDetailAudit (
     BookID         CHAR(10),
     LoanID         CHAR(10),
-    ActionType     VARCHAR2(20),
-    ActionDate     DATE,
-    PerformedBy    VARCHAR2(50)
+	ActionDate     TIMESTAMP,
+    ActionType     VARCHAR(10),
+	ActionDesc 	   VARCHAR(200),
+    PerformedBy    VARCHAR(100)
 );
 
 
 CREATE OR REPLACE TRIGGER trg_borrowed_count
-AFTER INSERT ON LoanDetail
-FOR EACH ROW
-BEGIN
-    UPDATE Book
-    SET BorrowedCount = NVL(BorrowedCount, 0) + 1
-    WHERE BookID = :NEW.BookID;
-
-    INSERT INTO BookLoanAudit (BookID, LoanID, ActionType, ActionDate, PerformedBy)
-    VALUES (:NEW.BookID, :NEW.LoanID, 'BORROW', SYSDATE, USER);
-END;
-/
-
-
-
-
--- Trigger 1: check if member loaning books exceed defined limit
--- The purpose of this trigger is to ensure that a member can borrow or reserve at most 5 books per loan or reservation. It applies the rule to both the LoanDetail and ReservationDetail tables, ensuring that the limit is enforced individually for loans and reservations.
-SET SERVEROUTPUT ON;
-
-CREATE OR REPLACE TRIGGER trg_limit_per_loan
-BEFORE INSERT ON LoanDetail
+AFTER INSERT OR UPDATE OR DELETE ON LoanDetail
 FOR EACH ROW
 DECLARE
-    v_current_books NUMBER;
+	v_actionStr 	VARCHAR(150);
 BEGIN
-    SELECT COUNT(*) INTO v_current_books
-    FROM LoanDetail
-    WHERE LoanID = :NEW.LoanID;
-        
-    IF v_current_books >= 5 THEN
-        RAISE_APPLICATION_ERROR(-20000, 'Member can borrow a maximum of 5 books per loan.');
-    END IF;
-END;
-/
+	IF INSERTING THEN
+		UPDATE Book
+		SET BorrowedCount = NVL(BorrowedCount, 0) + 1,
+			AvailableCopies = AvailableCopies - 1
+		WHERE BookID = :NEW.BookID;
+		
+		v_actionStr := 'Return Date: ' || :NEW.ReturnDate || 
+		', Extension Count: ' || :NEW.ExtensionCount || 
+		', Extended Due Date: ' :NEW.ExtendedDueDate || 
+		', Status: ' || :NEW.Status;
 
-
-
--- Trigger 2: check returned book duedate and assign fine if returned late
--- The purpose of this trigger is to automatically assign a fine to a book if it is returned late. When a loan status is updated to "RETURNED," the trigger compares the return date with the book's due date. If the return date is later than the due date, the trigger generates a fine and updates the loan record to reflect the late return status. The fine is then recorded in the Fine table, and the loan detail is updated with the corresponding fine ID.
-SET SERVEROUTPUT ON;
-
-CREATE OR REPLACE TRIGGER trg_assign_fine_on_return
-AFTER UPDATE OF Status ON LoanDetail
-FOR EACH ROW
-DECLARE
-    v_due DATE;
-    v_fine_id CHAR(10);
-    v_fine_amount NUMBER(6,2);
-BEGIN
-    IF UPPER(:NEW.Status) = 'RETURNED' THEN
-        v_due := COALESCE(:OLD.ExtendedDueDate, 
-                         (SELECT DueDate FROM Loan WHERE LoanID = :OLD.LoanID));
-
-        -- If returned late, calculate the fine
-        IF :NEW.ReturnDate > v_due THEN
-            -- Calculate the number of days overdue
-            v_fine_amount := (SYSDATE - v_due) * 2;  -- RM2 per day fine
-
-            -- Generate FineID (you can replace this with a sequence)
-            v_fine_id := 'FINE' || TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS');
-
-            INSERT INTO Fine (FineID, FineAmount, FineStatus, IssueDate, Remark)
-            VALUES (v_fine_id, v_fine_amount, 'UNPAID', SYSDATE, 'Late return');
-
-            UPDATE LoanDetail
-            SET FineID = v_fine_id,
-                Status = 'LATE RETURNED'
-            WHERE LoanID = :OLD.LoanID AND BookID = :OLD.BookID;
-        END IF;
-    END IF;
-END;
-/
-
-CREATE OR REPLACE TRIGGER trg_update_extendedduedate
-BEFORE UPDATE OF ExtensionCount ON LoanDetail
-FOR EACH ROW
-DECLARE
-    v_base_due_date DATE;
-BEGIN
-	IF :NEW.ExtensionCount > 3 THEN
-		DBMS_OUTPUT.PUT_LINE('Loan extension limit reached for book: ' || :NEW.BookID);
-	END IF;
+		INSERT INTO LoanDetailAudit (BookID, LoanID, ActionDate, ActionType, ActionDesc, PerformedBy)
+		VALUES (:NEW.BookID, :NEW.LoanID, SYSTIMESTAMP, 'INSERT', v_actionStr, USER);
+		
+	ELSIF UPDATING THEN
+		
+		IF :OLD.BookID != :NEW.BookID THEN
+			UPDATE Book
+			SET BorrowedCount = NVL(BorrowedCount, 0) - 1,
+			AvailableCopies = AvailableCopies + 1
+			WHERE BookID = :OLD.BookID;
+			
+			UPDATE Book
+			SET BorrowedCount = NVL(BorrowedCount, 0) + 1,
+			AvailableCopies = AvailableCopies - 1
+			WHERE BookID = :NEW.BookID;
+		END IF;
 	
-    SELECT DueDate INTO v_base_due_date
-    FROM Loan
-    WHERE LoanID = :NEW.LoanID;
+		v_actionStr := 'Book ID: ' || :OLD.BookID || ' -> ' || :NEW.BookID ||
+		', Loan ID: ' || :OLD.LoanID || ' -> ' || :NEW.LoanID ||
+		'Return Date: ' || :OLD.ReturnDate || ' -> ' || :NEW.ReturnDate || 
+		', Extension Count: ' || :OLD.ExtensionCount || ' -> ' || :NEW.ExtensionCount || 
+		', Extended Due Date: ' || :OLD.ExtendedDueDate || ' -> ' :NEW.ExtendedDueDate || 
+		', Status: ' || :OLD.Status || ' -> ' || :NEW.Status;
 
-    :NEW.ExtendedDueDate := v_base_due_date + (:NEW.ExtensionCount * 7);
+		INSERT INTO LoanDetailAudit (BookID, LoanID, ActionDate, ActionType, ActionDesc, PerformedBy)
+		VALUES (:NEW.BookID, :NEW.LoanID, SYSTIMESTAMP, 'UPDATE', v_actionStr, USER);
+		
+	ELSIF DELETING THEN
+	
+		UPDATE Book
+		SET BorrowedCount = NVL(BorrowedCount, 0) - 1,
+			AvailableCopies = AvailableCopies + 1
+		WHERE BookID = :OLD.BookID;
+		
+		v_actionStr := 'Return Date: ' || :OLD.ReturnDate || 
+		', Extension Count: ' || :OLD.ExtensionCount || 
+		', Extended Due Date: ' :OLD.ExtendedDueDate || 
+		', Status: ' || :OLD.Status;
+
+		INSERT INTO LoanDetailAudit (BookID, LoanID, ActionDate, ActionType, ActionDesc, PerformedBy)
+		VALUES (:OLD.BookID, :OLD.LoanID, SYSTIMESTAMP, 'DELETE', v_actionStr, USER);
+	END IF;
 END;
 /
 
+
+
+
+--------------------------------------------------------------------------------------
 
 CREATE OR REPLACE TRIGGER trg_check_member_validity
 BEFORE INSERT ON Loan
@@ -180,212 +156,24 @@ END;
 /
 
 
+SET SERVEROUTPUT ON;
 
--- trigger 
-CREATE OR REPLACE TRIGGER trg_update_copies_after_loan
-AFTER INSERT ON LoanDetail
+CREATE OR REPLACE TRIGGER trg_check_member_validity
+BEFORE INSERT ON Loan
 FOR EACH ROW
 DECLARE
-	v_availableCopies 	Book.AvailableCopies%TYPE;
+    v_today DATE := SYSDATE;
+    v_expiry DATE;
 BEGIN
-	SELECT AvailableCopies INTO v_availableCopies
-	FROM Book
-	WHERE BookID = :NEW.BookID;
-			
-	IF (v_availableCopies > 0) THEN
-		UPDATE Book
-		SET AvailableCopies = AvailableCopies - 1
-		WHERE BookID = :NEW.BookID;
-		
-		:NEW.Status := 'BORROWED';
-	END IF;
-END;
-/
+    SELECT EndDate INTO v_expiry
+    FROM Member
+    WHERE MemberID = :NEW.MemberID;
 
-
-
--- !!!!
-CREATE OR REPLACE TRIGGER trg_loan_detail_update_book
-AFTER INSERT OR UPDATE OR DELETE ON LoanDetail
-FOR EACH ROW
-DECLARE
-	v_availableCopies 	Book.AvailableCopies%TYPE;
-BEGIN
-    -- When a book is borrowed (INSERT)
-    IF INSERTING THEN
-		IF UPPER(:NEW.Status) = 'BORROWED' THEN
-			UPDATE Book
-			SET AvailableCopies = AvailableCopies - 1
-			WHERE BookID = :NEW.BookID;
-		END IF;
-    -- When a book is returned (UPDATE)
-    ELSIF UPDATING THEN
-        IF UPPER(:OLD.Status) != 'RETURNED' AND UPPER(:NEW.Status) = 'RETURNED' THEN
-            UPDATE Book
-            SET AvailableCopies = AvailableCopies + 1
-            WHERE BookID = :NEW.BookID;
-        END IF;
-    -- When a loan detail is deleted (DELETE)
-    ELSIF DELETING THEN
-        UPDATE Book
-        SET AvailableCopies = AvailableCopies + 1
-        WHERE BookID = :OLD.BookID;
+    IF v_expiry < v_today THEN
+        RAISE_APPLICATION_ERROR(-20000, 'Member''s membership has expired.');
     END IF;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20000, 'Member ID not found.');
 END;
 /
-
-
-
-
-
-
--- !!!!
-CREATE OR REPLACE TRIGGER trg_update_membership
-AFTER INSERT ON MemberRenewal
-FOR EACH ROW
-DECLARE
-	v_newDuration 		MemberRenewal.Duration%TYPE;
-	v_memberId 			Member.MemberID%TYPE;
-	v_oldStartDate 		Member.StartDate%TYPE;
-	v_oldEndDate 		Member.EndDate%TYPE;
-BEGIN
-	IF (:NEW.InvoiceID IS NOT NULL) THEN
-		SELECT Duration, MemberID INTO v_newDuration, v_memberId
-		FROM MemberRenewal;
-		
-		SELECT StartDate, EndDate INTO v_oldStartDate, v_oldEndDate
-		FROM Member
-		WHERE MemberID = v_memberId;
-		
-        IF (v_oldEndDate > SYSDATE) THEN
-            UPDATE Member
-            SET
-                StartDate = SYSDATE,
-				 EndDate = ADD_MONTHS(v_oldEndDate, v_newDuration * 12)
-            WHERE MemberID = v_memberId;
-        ELSE
-            UPDATE Member
-            SET
-                StartDate = SYSDATE,
-                EndDate = ADD_MONTHS(SYSDATE, v_newDuration * 12)
-            WHERE MemberID = v_memberId;
-        END IF;
-    END IF;
-END;
-/
-
-CREATE OR REPLACE TRIGGER trg_availability_loan
-BEFORE INSERT ON LoanDetail
-FOR EACH ROW
-	v_availableCopies Book.AvailableCopies%TYPE;
-BEGIN
-	SELECT AvailableCopies INTO v_availableCopies
-	FROM Book
-	WHERE BookID = :NEW.BookID;
-	
-	IF (v_availableCopies > 0) THEN
-        UPDATE Book
-        SET AvailableCopies = AvailableCopies - 1
-        WHERE BookID = :NEW.BookID;
-    ELSE
-		RAISE_APPLICATION_ERROR(-20000, 'Book: ' || v_book_id || ' do not have enough copies!');
-    END IF;
-END;
-/
-
-CREATE OR REPLACE TRIGGER trg_availability_res
-BEFORE INSERT ON ReservationDetail
-FOR EACH ROW
-	v_availableCopies Book.AvailableCopies%TYPE;
-BEGIN
-	SELECT AvailableCopies INTO v_availableCopies
-	FROM Book
-	WHERE BookID = :NEW.BookID;
-	
-	IF (v_availableCopies > 0) THEN
-        UPDATE Book
-        SET AvailableCopies = AvailableCopies - 1
-        WHERE BookID = :NEW.BookID;
-    ELSE
-		RAISE_APPLICATION_ERROR(-20000, 'Book: ' || v_book_id || ' do not have enough copies!');
-    END IF;
-END;
-/
-
-
-CREATE OR REPLACE TRIGGER trg_update_after_res
-BEFORE INSERT ON ReservationDetail
-FOR EACH ROW
-DECLARE
-    v_availableCopies Book.AvailableCopies%TYPE;
-BEGIN
-    SELECT AvailableCopies INTO v_availableCopies
-    FROM Book
-    WHERE BookID = :NEW.BookID;
-
-    IF (v_availableCopies > 0) THEN
-        -- Reduce available copies
-        UPDATE Book
-        SET AvailableCopies = AvailableCopies - 1
-        WHERE BookID = :NEW.BookID;
-
-        -- Mark as available
-        :NEW.Status := 'AVAILABLE';
-        :NEW.AvailableDate := SYSDATE;
-    ELSE
-        -- Mark as not available
-        :NEW.Status := 'NOT AVAILABLE';
-    END IF;
-END;
-/
-
-
-
-CREATE OR REPLACE TRIGGER trg_set_reservation_ready
-AFTER UPDATE OF Status ON ReservationDetail
-FOR EACH ROW
-DECLARE
-    v_count_total     NUMBER;
-    v_count_available NUMBER;
-BEGIN
-    -- Get total ReservationDetail rows for the reservation
-    SELECT COUNT(*) INTO v_count_total
-    FROM ReservationDetail
-    WHERE ReservationID = :NEW.ReservationID;
-
-    -- Get how many have Status = 'AVAILABLE'
-    SELECT COUNT(*) INTO v_count_available
-    FROM ReservationDetail
-    WHERE ReservationID = :NEW.ReservationID
-      AND UPPER(Status) = 'AVAILABLE';
-
-    -- If all are available, set Reservation status to READY
-    IF v_count_total = v_count_available THEN
-        UPDATE Reservation
-        SET ReservationStatus = 'READY'
-        WHERE ReservationID = :NEW.ReservationID;
-    END IF;
-END;
-/
-
-
-CREATE OR REPLACE TRIGGER trg_update_copies_res_status
-AFTER UPDATE OF ReservationStatus ON Reservation
-FOR EACH ROW
-DECLARE
-    CURSOR cur_reserved_books IS
-        SELECT BookID
-        FROM ReservationDetail
-        WHERE ReservationID = :NEW.ReservationID;
-BEGIN 
-	IF (UPPER(:NEW.ReservationStatus) IN ('COMPLETED', 'CANCELLED')) THEN
-        FOR rec IN cur_reserved_books LOOP
-            -- Update available copies for each book
-            UPDATE Book
-            SET AvailableCopies = AvailableCopies + 1
-            WHERE BookID = rec.BookID;
-        END LOOP;
-    END IF;
-END;
-/
-

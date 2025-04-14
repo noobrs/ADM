@@ -206,6 +206,102 @@ EXEC prc_loan_books('MEM0000005', 'BOK0000010,BOK0000009,BOK0000011');
 
 
 
+CREATE OR REPLACE PROCEDURE prc_loan_reserved_books (v_reservation_id IN CHAR) IS
+    v_member_id     Member.MemberID%TYPE;
+    v_book_id       Book.BookID%TYPE;
+    v_book_title    Book.Title%TYPE;
+    v_newLoanId     Loan.LoanID%TYPE;
+    v_newLoanDate   DATE;
+    v_newDueDate    DATE;
+    v_resStatus    	ReservationDetail.Status%TYPE;
+
+    CURSOR resBookCursor IS
+        SELECT rd.BookID, b.Title
+        FROM ReservationDetail rd
+        JOIN Book b ON rd.BookID = b.BookID
+        WHERE rd.ReservationID = v_reservation_id;
+
+BEGIN
+    SELECT MemberID INTO v_member_id
+    FROM Reservation
+    WHERE ReservationID = v_reservation_id;
+
+    v_newLoanId := 'LOA' || TO_CHAR(loan_seq.NEXTVAL, 'FM0000000');
+    v_newLoanDate := SYSDATE;
+    v_newDueDate := SYSDATE + 14;
+
+    INSERT INTO Loan (LoanID, LoanDate, DueDate, MemberID)
+    VALUES (v_newLoanId, v_newLoanDate, v_newDueDate, v_member_id);
+
+    OPEN resBookCursor;
+    LOOP
+        FETCH resBookCursor INTO v_book_id, v_book_title;
+        EXIT WHEN resBookCursor%NOTFOUND;
+
+		SELECT Status INTO v_resStatus
+		FROM ReservationDetail
+		WHERE ReservationID = v_reservation_id AND BookID = v_book_id;
+
+		IF v_resStatus = 'NOT AVAILABLE' THEN
+			ROLLBACK;
+			RAISE_APPLICATION_ERROR(-20000, 'Book: ' || v_book_id || ' from Reservation: ' || v_reservation_id || ' is not available!');
+		END IF;
+
+        INSERT INTO LoanDetail (LoanID, BookID, Status)
+        VALUES (v_newLoanId, v_book_id, 'BORROWED');
+    END LOOP;
+    CLOSE resBookCursor;
+
+    UPDATE Reservation
+    SET ReservationStatus = 'COMPLETED'
+    WHERE ReservationID = v_reservation_id;
+
+    COMMIT;
+	
+	DBMS_OUTPUT.PUT_LINE('');
+	DBMS_OUTPUT.PUT_LINE('Loan created successfully from reservation!');
+	DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('========================================');
+	DBMS_OUTPUT.PUT_LINE('              LOAN DETAILS               ');
+	DBMS_OUTPUT.PUT_LINE('========================================');
+	DBMS_OUTPUT.PUT_LINE(RPAD('Loan ID', 15) || ': ' || v_newLoanId);
+	DBMS_OUTPUT.PUT_LINE(RPAD('Member ID', 15) || ': ' || v_member_id);
+	DBMS_OUTPUT.PUT_LINE(RPAD('Loan Date', 15) || ': ' || TO_CHAR(v_newLoanDate, 'DD-MON-YYYY'));
+	DBMS_OUTPUT.PUT_LINE(RPAD('Due Date', 15) || ': ' || TO_CHAR(v_newDueDate, 'DD-MON-YYYY'));
+	DBMS_OUTPUT.PUT_LINE('----------------------------------------');
+	DBMS_OUTPUT.PUT_LINE(' Book(s) Borrowed:');
+	DBMS_OUTPUT.PUT_LINE('----------------------------------------');
+
+    OPEN resBookCursor;
+    LOOP
+        FETCH resBookCursor INTO v_book_id, v_book_title;
+        EXIT WHEN resBookCursor%NOTFOUND;
+        DBMS_OUTPUT.PUT_LINE('  - ' || v_book_id || ' | ' || v_book_title);
+    END LOOP;
+    CLOSE resBookCursor;
+
+    DBMS_OUTPUT.PUT_LINE('========================================');
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Reservation ID not found: ' || v_reservation_id);
+    WHEN OTHERS THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/
+
+
+SELECT * FROM ReservationDetail ORDER BY ReservationID DESC;
+
+INSERT INTO Reservation VALUES ('RES0000101', SYSDATE, 'PENDING', NULL, NULL, 'MEM0000001');
+INSERT INTO ReservationDetail VALUES ('RES0000101', 'BOK0000005', SYSDATE, 'AVAILABLE');
+INSERT INTO ReservationDetail VALUES ('RES0000101', 'BOK0000002', SYSDATE, 'NOT AVAILABLE');
+INSERT INTO ReservationDetail VALUES ('RES0000101', 'BOK0000004', SYSDATE, 'NOT AVAILABLE');
+COMMIT;
+
+EXEC prc_loan_reserved_books ('RES0000101');
 
 
 -- !!!!
