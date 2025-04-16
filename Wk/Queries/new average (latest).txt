@@ -1,7 +1,6 @@
 SET LINESIZE 80;
 SET PAGESIZE 80;
 
-
 CREATE OR REPLACE VIEW View_BorrowedBooks_ByAgeGroup AS
 WITH AgeGroups AS (
     SELECT 'Teenagers' AS AgeGroup FROM DUAL
@@ -49,6 +48,11 @@ FROM
 ORDER BY 
     G.Genre, A.AgeGroup;
 
+-- Create indexes
+CREATE INDEX idx_book_genre ON Book (Genre);
+CREATE INDEX idx_loandetail_bookid_loanid ON LoanDetail (BookID, LoanID);
+CREATE INDEX idx_loan_loanid_memberid ON Loan (LoanID, MemberID);
+CREATE INDEX idx_member_dob ON Member (DOB);
 
 TTITLE CENTER '<=== Genre of Books Categorized by Age Group ===>' SKIP 2
 REPFOOTER CENTER '<--- END OF REPORT --->'
