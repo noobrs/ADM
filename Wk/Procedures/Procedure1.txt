@@ -29,9 +29,9 @@ BEGIN
    ELSIF v_price <= 0 THEN
       v_errorMsg := 'Price must be a positive number!';
       RAISE_APPLICATION_ERROR(-20000, v_errorMsg);
-   ELSIF v_publicationyear < 1000 THEN
-       v_errorMsg := 'Please Enter valid Publication Year!';
-       RAISE_APPLICATION_ERROR(-20000, v_errorMsg);
+   ELSIF v_publicationyear < 1000 OR v_publicationyear > 2025 THEN
+      v_errorMsg := 'Please enter a valid Publication Year!';
+      RAISE_APPLICATION_ERROR(-20000, v_errorMsg);
    ELSIF TRIM(v_genre) IS NULL THEN
        v_errorMsg := 'Genre cannot be empty!';
        RAISE_APPLICATION_ERROR(-20000, v_errorMsg);
