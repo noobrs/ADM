@@ -1,0 +1,97 @@
+SET SERVEROUTPUT ON
+SET linesize 120
+SET pagesize 100
+
+CREATE OR REPLACE PROCEDURE prc_add_new_book (
+v_title IN VARCHAR,
+v_author IN VARCHAR,
+v_isbn IN NUMBER,
+v_price IN NUMBER,
+v_publicationyear IN NUMBER,
+v_genre IN VARCHAR,
+v_totalCopies IN NUMBER
+)
+IS 
+   v_errorMsg VARCHAR2(200);
+   v_bookID Book.BookID%TYPE;
+   v_count NUMBER;
+
+BEGIN
+   IF TRIM(v_title) IS NULL THEN
+      v_errorMsg := 'Title cannot be empty!';
+      RAISE_APPLICATION_ERROR(-20000, v_errorMsg); 
+   ELSIF TRIM(v_author) IS NULL THEN
+      v_errorMsg := 'Author Name cannot be empty!';
+      RAISE_APPLICATION_ERROR(-20000, v_errorMsg); 
+   ELSIF LENGTH(TRIM(v_isbn)) != 13 THEN
+      v_errorMsg := 'ISBN must be exactly 13 characters!';
+      RAISE_APPLICATION_ERROR(-20000, v_errorMsg);
+   ELSIF v_price <= 0 THEN
+      v_errorMsg := 'Price must be a positive number!';
+      RAISE_APPLICATION_ERROR(-20000, v_errorMsg);
+   ELSIF v_publicationyear < 1000 THEN
+       v_errorMsg := 'Please Enter valid Publication Year!';
+       RAISE_APPLICATION_ERROR(-20000, v_errorMsg);
+   ELSIF TRIM(v_genre) IS NULL THEN
+       v_errorMsg := 'Genre cannot be empty!';
+       RAISE_APPLICATION_ERROR(-20000, v_errorMsg);
+   ELSIF v_totalCopies < 0 THEN
+      v_errorMsg := 'Total Copies must be a positive number!';
+      RAISE_APPLICATION_ERROR(-20000, v_errorMsg); 
+
+   END IF;
+
+   SELECT COUNT(*) INTO v_count
+   FROM Book
+   WHERE Isbn = v_isbn;
+
+   IF v_count > 0 THEN
+      RAISE_APPLICATION_ERROR(-20001, 'A book with this ISBN already exists!');
+   END IF;
+
+
+   v_bookID := 'BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000');
+
+   INSERT INTO Book (BookID, Title, Author, Isbn, Price, PublicationYear, Genre, TotalCopies, AvailableCopies, BorrowedCount)
+   VALUES (v_bookID, v_title, v_author, v_isbn, v_price, v_publicationyear, v_genre, v_totalCopies, v_totalCopies, 0);
+
+   COMMIT;
+
+   --Output
+   --Header
+   DBMS_OUTPUT.PUT_LINE(LPAD('=', 120, '='));
+   DBMS_OUTPUT.PUT_LINE(CHR(10));
+   DBMS_OUTPUT.PUT_LINE('Book Details Added');
+   DBMS_OUTPUT.PUT_LINE('Book ID             : ' || 'BOK' || TO_CHAR(book_seq.NEXTVAL, 'FM0000000'));
+   DBMS_OUTPUT.PUT_LINE('Book Title          : ' || v_title);
+   DBMS_OUTPUT.PUT_LINE('Author Name         : ' || v_author);
+   DBMS_OUTPUT.PUT_LINE('ISBN                : ' || v_isbn);
+   DBMS_OUTPUT.PUT_LINE('Book Price          : ' || TO_CHAR(v_price, '$999,999.99'));
+   DBMS_OUTPUT.PUT_LINE('Publication Year    : ' || v_publicationyear);
+   DBMS_OUTPUT.PUT_LINE('Genre               : ' || v_genre);
+   DBMS_OUTPUT.PUT_LINE('Total Copies        : ' || v_totalCopies);
+   DBMS_OUTPUT.PUT_LINE('Available Copies    : ' || v_totalCopies);
+   DBMS_OUTPUT.PUT_LINE('Member ID           : ' || 0);
+
+   
+   --Footer
+   DBMS_OUTPUT.PUT_LINE(CHR(10));
+   DBMS_OUTPUT.PUT_LINE(LPAD('=', 54, '=') || RPAD('End Of Report', 66, '='));
+
+   EXCEPTION
+   WHEN OTHERS THEN
+      DBMS_OUTPUT.PUT_LINE('An error occurred: ' || SQLERRM);
+      ROLLBACK;
+
+END;
+/
+
+
+EXEC prc_add_new_book('','Jane Turing', 1234567890123,55.75,2023,'Technology', 10);
+EXEC prc_add_new_book('The AI Revolution','Jane Turing', 12345678903,55.75,2023,'Technology', 10);
+EXEC prc_add_new_book('The AI Revolution','Jane Turing', 1234567890123,0,2023,'Technology', 10);
+EXEC prc_add_new_book('The AI Revolution','Jane Turing', 1234567890123,55.75,0,'Technology', 10);
+EXEC prc_add_new_book('The AI Revolution','Jane Turing', 1234567890123,55.75,2023,'', 10);
+EXEC prc_add_new_book('The AI Revolution','Jane Turing', 1234567890123,55.75,2023,'Technology', -1);
+EXEC prc_add_new_book('The AI Revolution','Jane Turing', 1234567890123,55.75,2023,'Technology', 10);
+EXEC prc_add_new_book('The AI Revolution','Jane Turing', 1234567890123,55.75,2023,'Technology', 10);
