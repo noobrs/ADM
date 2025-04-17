@@ -10,7 +10,6 @@ CREATE OR REPLACE PROCEDURE prc_check_pending_reservation (v_reservationID IN CH
   v_isReady NUMBER;
 
   v_status VARCHAR2(10);
-  v_pickupDate DATE;
   v_memberID CHAR(10);
 BEGIN
   SELECT COUNT(*) INTO v_exists
@@ -45,12 +44,11 @@ BEGIN
 
   IF v_totalBooks = v_availableBooks THEN
     UPDATE Reservation
-    SET ReservationStatus = 'READY',
-    PickupDate = SYSDATE + 1
+    SET ReservationStatus = 'READY'
     WHERE ReservationID = v_reservationID;
 
-    SELECT ReservationStatus, PickupDate, MemberID
-    INTO v_status, v_pickupDate, v_memberID
+    SELECT ReservationStatus, MemberID
+    INTO v_status, v_memberID
     FROM Reservation
     WHERE ReservationID = v_reservationID;
 
@@ -58,7 +56,6 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Reservation Details After Update');
     DBMS_OUTPUT.PUT_LINE('Reservation ID : ' || v_reservationID);
     DBMS_OUTPUT.PUT_LINE('Status         : ' || v_status);
-    DBMS_OUTPUT.PUT_LINE('Pickup Date    : ' || TO_CHAR(v_pickupDate, 'YYYY-MM-DD'));
     DBMS_OUTPUT.PUT_LINE('Member ID      : ' || v_memberID);
 
   ELSE
