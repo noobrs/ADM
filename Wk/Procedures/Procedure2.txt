@@ -9,8 +9,8 @@ SET linesize 120
 SET pagesize 100
 
 CREATE OR REPLACE PROCEDURE CancelPendingReservation (
-    v_ReservationID   CHAR,
-    v_MemberID        CHAR,
+    v_ReservationID   VARCHAR,
+    v_MemberID        VARCHAR,
     v_CancelReason    VARCHAR DEFAULT 'No reason provided'
 )
 AS
