@@ -1,7 +1,7 @@
 SET LINESIZE 100;
 SET PAGESIZE 100;
 
-CREATE VIEW vw_books_not_picked_up AS
+CREATE OR REPLACE VIEW vw_books_not_picked_up AS
     SELECT 
         b.BookID,
         b.Title,
