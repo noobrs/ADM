@@ -1,0 +1,97 @@
+--YHS Report 2
+SET LINESIZE 150;
+SET PAGESIZE 100;
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE PROCEDURE prc_facility_usage_by_year (v_year IN NUMBER) IS
+  CURSOR facility_cursor IS
+    SELECT FacilityID, Name, Venue, Capacity, FacilityStatus
+    FROM Facility;
+
+  CURSOR booking_cursor(p_facility_id CHAR) IS
+    SELECT BookingID, BookingDate, BookingStatus, 
+      CheckInTime, CheckOutTime,
+      (FirstName || ' ' || LastName) AS MemberName
+      FROM Booking b
+      JOIN Member m ON b.MemberID = m.MemberID
+      WHERE b.FacilityID = p_facility_id
+      AND EXTRACT(YEAR FROM b.BookingDate) = v_year
+      ORDER BY BookingDate, MemberName;
+
+  v_facility Facility%ROWTYPE;
+  v_bookingID Booking.BookingID%TYPE;
+  v_bookingDate Booking.BookingDate%TYPE;
+  v_bookingStatus Booking.BookingStatus%TYPE;
+  v_checkInTime Booking.CheckInTime%TYPE;
+  v_checkOutTime Booking.CheckOutTime%TYPE;
+  v_checkInStr VARCHAR2(6);
+  v_checkOutStr VARCHAR2(6);
+  v_member_name VARCHAR2(100);
+  v_has_booking BOOLEAN := FALSE;
+  v_total_bookings NUMBER;
+BEGIN
+  DBMS_OUTPUT.PUT_LINE('|===============================================================================|');
+  DBMS_OUTPUT.PUT_LINE('|                       FACILITY USAGE REPORT FOR ' || v_year || '                          |');
+  DBMS_OUTPUT.PUT_LINE('|===============================================================================|');
+
+  OPEN facility_cursor;
+  LOOP
+    FETCH facility_cursor INTO v_facility.FacilityID, v_facility.Name, v_facility.Venue, 
+                               v_facility.Capacity, v_facility.FacilityStatus;
+    EXIT WHEN facility_cursor%NOTFOUND;
+
+    v_has_booking := FALSE;
+
+    OPEN booking_cursor(v_facility.FacilityID);
+    FETCH booking_cursor INTO v_bookingID, v_bookingDate, v_bookingStatus, 
+                              v_checkInTime, v_checkOutTime, v_member_name;
+
+    IF booking_cursor%FOUND THEN
+      v_has_booking := TRUE;
+
+      DBMS_OUTPUT.PUT_LINE('|Facility:   ' || RPAD(v_facility.Name, 30) || ' (' || v_facility.FacilityID || ')                        |');
+      DBMS_OUTPUT.PUT_LINE('|Venue:         ' || RPAD(v_facility.Venue, 10) || 'Capacity: ' || RPAD(v_facility.Capacity, 6) || '                                      |');
+      DBMS_OUTPUT.PUT_LINE('|Status:        ' || RPAD(v_facility.FacilityStatus, 12) || '                                                    |');
+      DBMS_OUTPUT.PUT_LINE('|-------------------------------------------------------------------------------|');
+
+      LOOP
+        v_checkInStr := NVL(TO_CHAR(v_checkInTime, 'HH24:MI'), '*****');
+        v_checkOutStr := NVL(TO_CHAR(v_checkOutTime, 'HH24:MI'), '*****');
+
+        DBMS_OUTPUT.PUT_LINE('|' || RPAD(v_bookingID, 12) || ' ' ||
+                             TO_CHAR(v_bookingDate, 'YYYY-MM-DD') || ' ' ||
+                             RPAD(v_bookingStatus, 12) || ' ' ||
+                             RPAD(v_checkInStr, 6) || '- ' ||
+                             RPAD(v_checkOutStr, 6) || ' ' ||
+                             RPAD(v_member_name, 20) || '       |');
+
+        FETCH booking_cursor INTO v_bookingID, v_bookingDate, v_bookingStatus, 
+                                  v_checkInTime, v_checkOutTime, v_member_name;
+        EXIT WHEN booking_cursor%NOTFOUND;
+      END LOOP;
+
+      DBMS_OUTPUT.PUT_LINE('|*******************************************************************************|');
+      DBMS_OUTPUT.PUT_LINE('|                                                                               |');
+    END IF;
+
+    CLOSE booking_cursor;
+  END LOOP;
+
+  CLOSE facility_cursor;
+
+  SELECT COUNT(*)
+  INTO v_total_bookings
+  FROM Booking 
+  WHERE EXTRACT(YEAR FROM BookingDate) = v_year;
+
+  DBMS_OUTPUT.PUT_LINE('|===============================================================================|');
+  IF v_total_bookings < 10 THEN
+    DBMS_OUTPUT.PUT_LINE('|Total Bookings in ' || v_year || ': ' || v_total_bookings || '                                                      |');
+  ELSE
+    DBMS_OUTPUT.PUT_LINE('|Total Bookings in ' || v_year || ': ' || v_total_bookings || '                                                     |');
+  END IF;
+    DBMS_OUTPUT.PUT_LINE('|===============================================================================|');
+END;
+/
+
+EXEC prc_facility_usage_by_year(2025)

@@ -1,0 +1,111 @@
+--YHS Trigger 1
+SET LINESIZE 200;
+SET PAGESIZE 100;
+ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'HH24:MI:SS';
+
+DROP TABLE ReservationDetail_Audit;
+
+CREATE TABLE ReservationDetail_Audit (
+  ReservationID   CHAR(10) NOT NULL,
+  BookID          CHAR(10) NOT NULL,
+  Quantity        NUMBER,
+  OldAvailable    NUMBER,
+  NewAvailable    NUMBER,
+  UserID          VARCHAR2(10),
+  TransDate       DATE,
+  TransTime       TIMESTAMP,
+  Action          VARCHAR2(10),
+);
+
+CREATE OR REPLACE TRIGGER trg_update_available_copies
+BEFORE INSERT ON ReservationDetail
+FOR EACH ROW
+DECLARE
+  v_oldAvailable NUMBER;
+  v_newAvailable NUMBER;
+  v_quantity NUMBER;
+  v_bookCount NUMBER;
+  v_exists NUMBER;
+  v_resExists NUMBER;
+BEGIN
+  v_newAvailable := 0;
+  v_quantity := 1;
+
+  SELECT COUNT(*) INTO v_resExists
+  FROM Reservation
+  WHERE ReservationID = :NEW.ReservationID;
+
+  IF v_resExists <= 0 THEN
+    RAISE_APPLICATION_ERROR(-20000, 'The ReservationID is invalid.');
+  END IF;
+
+  SELECT COUNT(*) INTO v_exists
+  FROM ReservationDetail
+  WHERE ReservationID = :NEW.ReservationID
+  AND BookID = :NEW.BookID;
+
+  IF v_exists > 0 THEN
+    RAISE_APPLICATION_ERROR(-20000, 'This book is already added to the reservation.');
+  END IF;
+
+  SELECT COUNT(*) INTO v_bookCount
+  FROM ReservationDetail
+  WHERE ReservationID = :NEW.ReservationID;
+
+  IF v_bookCount >= 5 THEN
+    RAISE_APPLICATION_ERROR(-20000, 'Maximum of 5 books per reservation reached.');
+  END IF;
+
+  SELECT AvailableCopies INTO v_oldAvailable
+  FROM Book
+  WHERE BookID = :NEW.BookID;
+
+  IF v_oldAvailable <= 0 THEN
+    :NEW.Status := 'NOT AVAILABLE';
+    :NEW.AvailableDate := SYSDATE + 7;
+  ELSE
+    :NEW.Status := 'AVAILABLE';
+    :NEW.AvailableDate := SYSDATE;
+    v_newAvailable := v_oldAvailable - v_quantity;
+  END IF;
+
+  UPDATE Book
+  SET AvailableCopies = v_newAvailable
+  WHERE BookID = :NEW.BookID;
+
+  INSERT INTO ReservationDetail_Audit VALUES (
+    :NEW.ReservationID,
+    :NEW.BookID,
+    v_quantity,
+    v_oldAvailable,
+    v_newAvailable,
+    USER,
+    SYSDATE,
+    TO_TIMESTAMP(TO_CHAR(SYSDATE, 'HH24:MI:SS'), 'HH24:MI:SS'), 
+    'INSERT'
+  );
+END;
+/
+
+INSERT INTO Reservation VALUES ('RES0000101', '2025-04-22', 'PENDING', NULL, NULL, 'MEM0000050');
+UPDATE Book SET AvailableCopies = 0 WHERE BookID = 'BOK0000020';
+SELECT BookID, AvailableCopies
+FROM Book 
+WHERE BookID = 'BOK0000004'
+OR BookID = 'BOK0000003'
+OR BookID = 'BOK0000002'
+OR BookID = 'BOK0000001'
+OR BookID = 'BOK0000020';
+INSERT INTO ReservationDetail VALUES ('RES0000101', 'BOK0000004', '2025-04-22', 'PENDING');
+INSERT INTO ReservationDetail VALUES ('RES0000101', 'BOK0000004', '2025-04-22', 'PENDING');
+INSERT INTO ReservationDetail VALUES ('RES0000101', 'BOK0000003', '2025-04-23', 'PENDING');
+INSERT INTO ReservationDetail VALUES ('RES0000101', 'BOK0000002', '2025-04-23', 'PENDING');
+INSERT INTO ReservationDetail VALUES ('RES0000101', 'BOK0000001', '2025-04-24', 'PENDING');
+INSERT INTO ReservationDetail VALUES ('RES0000101', 'BOK0000020', '2025-04-24', 'PENDING');
+INSERT INTO ReservationDetail VALUES ('RES0000102', 'BOK0000019', '2025-04-24', 'PENDING');
+INSERT INTO ReservationDetail VALUES ('RES0000101', 'BOK0000019', '2025-04-24', 'PENDING');
+SELECT * FROM ReservationDetail WHERE ReservationID = 'RES0000101';
+SELECT * FROM ReservationDetail_Audit;
+DROP TABLE ReservationDetail_Audit;
+DELETE FROM ReservationDetail WHERE ReservationID = 'RES0000101';
+DELETE FROM Reservation WHERE ReservationID = 'RES0000101';

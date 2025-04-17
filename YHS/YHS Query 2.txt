@@ -1,0 +1,36 @@
+--YHS Query 2
+SET LINESIZE 83
+SET PAGESIZE 40
+
+ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD';
+
+CREATE OR REPLACE VIEW vw_members_consistent_renewals AS
+SELECT M.MemberID, M.FirstName || ' ' || M.LastName AS FullName,
+MIN(MR.RenewalDate) AS FirstRenew,
+MAX(M.EndDate) AS MembershipEnd,
+SUM(MR.Duration) AS TotalRenewYears
+FROM Member M
+JOIN MemberRenewal MR ON M.MemberID = MR.MemberID
+WHERE M.EndDate >= SYSDATE
+GROUP BY M.MemberID, M.FirstName, M.LastName
+HAVING ADD_MONTHS(MIN(MR.RenewalDate), SUM(MR.Duration * 12)) >= MAX(m.EndDate)
+ORDER BY MemberID;
+
+TTITLE LEFT '<<MEMBERS WITH CONSISTENT YEARLY RENEWALS>>' RIGHT 'PAGE: ' FORMAT 999 SQL.PNO SKIP 2
+REPFOOTER CENTER '<<END OF REPORT>>'
+SET NEWPAGE 3
+
+COLUMN MemberID FORMAT A15 HEADING 'Member ID'
+COLUMN FullName FORMAT A30 HEADING 'Name'
+COLUMN FirstRenew FORMAT A12 HEADING 'Member Since'
+COLUMN MemberShipEnd FORMAT A10 HEADING 'Member End'
+COLUMN TotalRenewYears FORMAT 999 HEADING 'Renew(Years)'
+
+BREAK ON MemberID SKIP 1
+
+SELECT * FROM vw_members_consistent_renewals;
+
+CLEAR COLUMNS;
+CLEAR BREAKS;
+TTITLE OFF;
+REPFOOTER OFF;

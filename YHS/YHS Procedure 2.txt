@@ -1,0 +1,96 @@
+--YHS Procedure 2
+SET LINESIZE 150;
+SET PAGESIZE 100;
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE PROCEDURE prc_book_facility (
+  v_memberID IN CHAR,
+  v_facilityID IN CHAR,
+  v_bookingDate IN DATE,
+  v_startTime IN TIMESTAMP,
+  v_endTime IN TIMESTAMP
+) IS
+  v_facilityStatus VARCHAR2(20);
+  v_today DATE := SYSDATE;
+  v_memberEnd DATE;
+  v_bookedToday NUMBER;
+  v_bookingID CHAR(10);
+
+BEGIN
+
+  SELECT COUNT(*) INTO v_bookedToday
+  FROM Booking
+  WHERE BookingDate = v_bookingDate
+  AND MemberID = v_memberID;
+
+  SELECT EndDate INTO v_memberEnd
+  FROM Member
+  WHERE MemberID = v_memberID;    
+
+  IF v_today > v_memberEnd THEN
+    RAISE_APPLICATION_ERROR(-20000, 'The membership of ' || v_memberID || ' is expired.');
+  END IF;
+
+  SELECT FacilityStatus INTO v_facilityStatus
+  FROM Facility
+  WHERE FacilityID = v_FacilityID;
+
+  IF UPPER(v_facilityStatus) != 'AVAILABLE' THEN
+    RAISE_APPLICATION_ERROR(-20000, 'Facility ' || v_facilityID || ' is not available for now.');
+  END IF;
+
+  IF v_bookingDate < TRUNC(SYSDATE) THEN
+    RAISE_APPLICATION_ERROR(-20000, 'Date not available.');
+  ELSIF v_bookingDate = TRUNC(SYSDATE) THEN
+    IF v_startTime >= v_endTime THEN
+      RAISE_APPLICATION_ERROR(-20000, 'Invalid time.');
+    ELSIF TO_CHAR(v_startTime, 'HH24:MI') < '08:00' OR TO_CHAR(v_endTime, 'HH24:MI') > '22:00' THEN
+      RAISE_APPLICATION_ERROR(-20000, 'Time not in operation hour.');
+    ELSIF EXTRACT(HOUR FROM (v_endTime - v_startTime)) > 5 THEN
+      RAISE_APPLICATION_ERROR(-20000, 'Exceed maximum booking time.');
+    ELSIF v_bookedToday > 0 THEN
+      RAISE_APPLICATION_ERROR(-20000, 'Exceed limit for facility booking today.');
+    END IF;
+  END IF;
+
+  UPDATE Facility
+  SET FacilityStatus = 'BOOKED'
+  WHERE FacilityID = v_facilityID;
+
+  v_bookingID := 'BKI' || TO_CHAR(booking_seq.NEXTVAL, 'FM0000000');
+
+  INSERT INTO Booking VALUES('BKI' || TO_CHAR(booking_seq.NEXTVAL, 'FM0000000'), v_bookingDate, v_startTime, v_endTime, 'PENDING', NULL, NULL, v_memberID, v_facilityID);
+
+  DBMS_OUTPUT.PUT_LINE('Facility booked successfully.');
+  DBMS_OUTPUT.PUT_LINE('Booking Details:');
+  DBMS_OUTPUT.PUT_LINE('Booking ID     : ' || v_bookingID);
+  DBMS_OUTPUT.PUT_LINE('Booking Date   : ' || TO_CHAR(v_bookingDate, 'YYYY-MM-DD'));
+  DBMS_OUTPUT.PUT_LINE('Start Time     : ' || TO_CHAR(v_startTime, 'YYYY-MM-DD HH24:MI:SS'));
+  DBMS_OUTPUT.PUT_LINE('End Time       : ' || TO_CHAR(v_endTime, 'YYYY-MM-DD HH24:MI:SS'));
+  DBMS_OUTPUT.PUT_LINE('Booking Status : PENDING');
+  DBMS_OUTPUT.PUT_LINE('Member ID      : ' || v_memberID);
+  DBMS_OUTPUT.PUT_LINE('Facility ID    : ' || v_facilityID);
+
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+      RAISE_APPLICATION_ERROR(-20000, 'Invalid member or facility ID.');
+    WHEN OTHERS THEN
+      RAISE_APPLICATION_ERROR(-20000, 'Something went wrong when facility booking.');
+END;
+/
+
+EXEC prc_book_facility('MEM0000048', 'FAC0000013', '2025-04-22', '2025-04-22 10:00:00', '2025-04-22 13:00:00');
+--Membership expired
+EXEC prc_book_facility('MEM0000001', 'FAC0000012', '2025-04-17', '2025-04-17 10:00:00', '2025-04-17 13:00:00');
+--Facility is not available for now
+EXEC prc_book_facility('MEM0000050', 'FAC0000013', '2025-04-16', '2025-04-16 10:00:00', '2025-04-16 13:00:00');
+--Date not available
+EXEC prc_book_facility('MEM0000048', 'FAC0000016', '2025-04-15', '2025-04-15 10:00:00', '2025-04-15 13:00:00');
+--Invalid Time
+EXEC prc_book_facility('MEM0000048', 'FAC0000011', '2025-04-22', '2025-04-22 11:00:00', '2025-04-22 10:00:00');
+--Time not in operation hour
+EXEC prc_book_facility('MEM0000048', 'FAC0000010', '2025-04-22', '2025-04-22 7:00:00', '2025-04-22 10:00:00');
+--Exceed maximum booking time
+EXEC prc_book_facility('MEM0000041', 'FAC0000018', '2025-04-21', '2025-04-21 10:00:00', '2025-04-21 17:00:00');
+--Exceed limit for facility booking today
+EXEC prc_book_facility('MEM0000048', 'FAC0000005', '2025-04-22', '2025-04-22 14:00:00', '2025-04-22 17:00:00');

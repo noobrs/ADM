@@ -1,0 +1,106 @@
+--YHS Trigger 2
+ALTER SESSION SET NLS_DATE_FORMAT='YYYY-MM-DD';
+DROP TABLE AuditMemberChange;
+
+CREATE TABLE AuditMemberChange (
+  MemberID       CHAR(10),
+  ChangeType     VARCHAR2(20),
+  OldValue       VARCHAR2(30),
+  NewValue       VARCHAR2(30),
+  ChangedBy      VARCHAR2(20),
+  ChangeDate     DATE DEFAULT SYSDATE,
+  ChangeTime     TIMESTAMP DEFAULT SYSTIMESTAMP
+);
+
+
+CREATE OR REPLACE TRIGGER trg_audit_member_changes
+BEFORE UPDATE ON Member
+FOR EACH ROW
+DECLARE
+  email_pattern_error EXCEPTION;
+  phone_number_error EXCEPTION;
+  start_end_date_error EXCEPTION;
+BEGIN
+
+  IF :OLD.PhoneNumber != :NEW.PhoneNumber THEN
+    IF NOT REGEXP_LIKE(:NEW.PhoneNumber, '^01[0-9]{1}[0-9]{8,9}$') 
+    OR LENGTH(:NEW.PhoneNumber) < 10 
+    OR LENGTH(:NEW.PhoneNumber) > 11 THEN
+      RAISE phone_number_error;
+    END IF;
+    INSERT INTO AuditMemberChange(MemberID, ChangeType, OldValue, NewValue, ChangedBy)
+    VALUES(:OLD.MemberID, 'Phone Number Update', :OLD.PhoneNumber, :NEW.PhoneNumber, USER);
+  END IF;
+
+  IF :OLD.Email != :NEW.Email THEN
+    IF NOT REGEXP_LIKE(:NEW.Email, '^[a-zA-Z]\w+@(\S+)$') THEN
+      RAISE email_pattern_error;
+    END IF;
+    INSERT INTO AuditMemberChange(MemberID, ChangeType, OldValue, NewValue, ChangedBy)
+    VALUES(:OLD.MemberID, 'Email Update', :OLD.Email, :NEW.Email, USER);
+  END IF;
+
+  IF :OLD.StartDate != :NEW.StartDate OR :OLD.EndDate != :NEW.EndDate THEN
+    RAISE start_end_date_error;
+  END IF;
+
+  IF :OLD.FirstName != :NEW.FirstName THEN
+    INSERT INTO AuditMemberChange(MemberID, ChangeType, OldValue, NewValue, ChangedBy)
+    VALUES(:OLD.MemberID, 'First Name Update', :OLD.FirstName, :NEW.FirstName, USER);
+  END IF;
+
+  IF :OLD.LastName != :NEW.LastName THEN
+    INSERT INTO AuditMemberChange(MemberID, ChangeType, OldValue, NewValue, ChangedBy)
+    VALUES(:OLD.MemberID, 'Last Name Update', :OLD.LastName, :NEW.LastName, USER);
+  END IF;
+
+  IF :OLD.DOB != :NEW.DOB THEN
+    INSERT INTO AuditMemberChange(MemberID, ChangeType, OldValue, NewValue, ChangedBy)
+    VALUES(:OLD.MemberID, 'Date of Birth Update', TO_CHAR(:OLD.DOB, 'YYYY-MM-DD'), TO_CHAR(:NEW.DOB, 'YYYY-MM-DD'), USER);
+  END IF;
+
+  IF :OLD.Gender != :NEW.Gender THEN
+    INSERT INTO AuditMemberChange(MemberID, ChangeType, OldValue, NewValue, ChangedBy)
+    VALUES(:OLD.MemberID, 'Gender Update', :OLD.Gender, :NEW.Gender, USER);
+  END IF;
+
+EXCEPTION
+  WHEN email_pattern_error THEN
+    RAISE_APPLICATION_ERROR(-20000, 'Invalid email format for Member update.');
+  WHEN phone_number_error THEN
+    RAISE_APPLICATION_ERROR(-20000, 'Invalid phone number format for Member update.');
+  WHEN start_end_date_error THEN
+    RAISE_APPLICATION_ERROR(-20011, 'Start Date and End Date is not allowed to be updated.');
+  WHEN OTHERS THEN
+    RAISE_APPLICATION_ERROR(-20000, 'Something went wrong when updating member.');  
+END;
+/
+
+UPDATE Member SET 
+Email = 'lengzai.123example.com'
+WHERE MemberID = 'MEM0000050';
+
+UPDATE Member SET 
+PhoneNumber = '01234566789015'
+WHERE MemberID = 'MEM0000050';
+
+UPDATE Member SET 
+StartDate = '2030-12-31'
+WHERE MemberID = 'MEM0000050';
+
+UPDATE Member SET 
+EndDate = '2030-12-31'
+WHERE MemberID = 'MEM0000050';
+
+UPDATE Member SET 
+Email = 'lengzai123@example.com',
+PhoneNumber = '012-3456789',
+FirstName = 'Leng',
+LastName = 'Zai'
+WHERE MemberID = 'MEM0000050';
+
+COLUMN ChangeTime FORMAT A10;
+SELECT MemberID, ChangeType, OldValue, NewValue, ChangedBy, ChangeDate, TO_CHAR(ChangeTime, 'HH24:MI:SS') AS ChangeTime FROM AuditMemberChange;
+CLEAR COLUMNS;
+ROLLBACK;
+DROP TABLE AuditMemberChange;

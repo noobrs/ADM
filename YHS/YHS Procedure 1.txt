@@ -1,0 +1,93 @@
+--YHS Procedure 1
+SET LINESIZE 150;
+SET PAGESIZE 100;
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE PROCEDURE prc_check_pending_reservation (v_reservationID IN CHAR) IS
+  v_totalBooks NUMBER;
+  v_availableBooks NUMBER;
+  v_exists NUMBER;
+  v_isReady NUMBER;
+
+  v_status VARCHAR2(10);
+  v_pickupDate DATE;
+  v_memberID CHAR(10);
+BEGIN
+  SELECT COUNT(*) INTO v_exists
+  FROM Reservation
+  WHERE ReservationID = v_reservationID;
+
+  SELECT COUNT(*) INTO v_isReady
+  FROM Reservation
+  WHERE ReservationID = v_reservationID
+  AND ReservationStatus = 'READY';
+
+  IF v_exists = 0 THEN
+    RAISE_APPLICATION_ERROR(-20000, 'Reservation ID '|| v_reservationID || ' not found.');
+  END IF;
+
+  SELECT COUNT(*) INTO v_totalBooks
+  FROM ReservationDetail
+  WHERE ReservationID = v_reservationID;
+
+  IF v_totalBooks = 0 THEN
+    RAISE_APPLICATION_ERROR(-20000, 'No books found in reservation ' || v_reservationID || '.');
+  END IF;
+
+  IF v_isReady = 1 THEN
+    RAISE_APPLICATION_ERROR(-20000, 'Reservation ' || v_reservationID || ' is currently in READY state.');
+  END if;
+
+  SELECT COUNT(*) INTO v_availableBooks
+  FROM ReservationDetail
+  WHERE ReservationID = v_reservationID
+  AND UPPER(Status) = 'AVAILABLE';
+
+  IF v_totalBooks = v_availableBooks THEN
+    UPDATE Reservation
+    SET ReservationStatus = 'READY',
+    PickupDate = SYSDATE + 1
+    WHERE ReservationID = v_reservationID;
+
+    SELECT ReservationStatus, PickupDate, MemberID
+    INTO v_status, v_pickupDate, v_memberID
+    FROM Reservation
+    WHERE ReservationID = v_reservationID;
+
+    DBMS_OUTPUT.PUT_LINE(CHR(10));
+    DBMS_OUTPUT.PUT_LINE('Reservation Details After Update');
+    DBMS_OUTPUT.PUT_LINE('Reservation ID : ' || v_reservationID);
+    DBMS_OUTPUT.PUT_LINE('Status         : ' || v_status);
+    DBMS_OUTPUT.PUT_LINE('Pickup Date    : ' || TO_CHAR(v_pickupDate, 'YYYY-MM-DD'));
+    DBMS_OUTPUT.PUT_LINE('Member ID      : ' || v_memberID);
+
+  ELSE
+    RAISE_APPLICATION_ERROR(-20000, 'Reservation ' || v_reservationID || ' is still PENDING. Not all books are available.');
+  END IF;
+
+END;
+/
+
+ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD';
+INSERT INTO Reservation VALUES ('RES0000101', '2025-04-10', 'PENDING', NULL, NULL, 'MEM0000013');
+INSERT INTO Reservation VALUES ('RES0000102', '2025-04-11', 'PENDING', NULL, NULL, 'MEM0000025');
+INSERT INTO Reservation VALUES ('RES0000103', '2025-04-19', 'READY', NULL, '2025-04-22', 'MEM0000045');
+INSERT INTO ReservationDetail VALUES ('RES0000101', 'BOK0000003', '2025-04-13', 'AVAILABLE');
+INSERT INTO ReservationDetail VALUES ('RES0000101', 'BOK0000010', '2025-04-13', 'AVAILABLE');
+INSERT INTO ReservationDetail VALUES ('RES0000101', 'BOK0000017', '2025-04-13', 'AVAILABLE');
+INSERT INTO ReservationDetail VALUES ('RES0000102', 'BOK0000005', '2025-04-22', 'AVAILABLE');
+INSERT INTO ReservationDetail VALUES ('RES0000102', 'BOK0000012', '2025-04-24', 'NOT AVAILABLE');
+INSERT INTO ReservationDetail VALUES ('RES0000102', 'BOK0000019', '2025-04-20', 'AVAILABLE');
+INSERT INTO ReservationDetail VALUES ('RES0000103', 'BOK0000014', '2025-04-21', 'AVAILABLE');
+
+SELECT * FROM Reservation WHERE ReservationID = 'RES0000101';
+
+EXEC prc_check_pending_reservation ('RES0000101');
+EXEC prc_check_pending_reservation ('RES0000102');
+SELECT * FROM ReservationDetail WHERE ReservationID = 'RES0000102';
+EXEC prc_check_pending_reservation ('RES0000103');
+SELECT * FROM Reservation WHERE ReservationID = 'RES0000103';
+EXEC prc_check_pending_reservation ('RES0000104');
+
+DELETE FROM ReservationDetail WHERE ReservationID > 'RES0000100';
+DELETE FROM Reservation WHERE ReservationID > 'RES0000100';

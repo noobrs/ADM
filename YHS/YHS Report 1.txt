@@ -1,0 +1,72 @@
+--YHS Report 1
+SET LINESIZE 150;
+SET PAGESIZE 100;
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE PROCEDURE prc_member_reservation_history (v_month IN VARCHAR2, v_year IN NUMBER) IS
+  v_reservationID     Reservation.ReservationID%TYPE;
+  v_reservationDate   Reservation.ReservationDate%TYPE;
+  v_reservationStatus Reservation.ReservationStatus%TYPE;
+  v_reservationPickupDate Reservation.PickupDate%TYPE;
+  v_memberID          Reservation.MemberID%TYPE;
+  v_bookID            ReservationDetail.BookID%TYPE;
+  v_bookTitle         Book.Title%TYPE;
+  v_monthNumber       NUMBER;
+  v_totalReservations NUMBER := 0;
+
+  CURSOR resCursor IS
+    SELECT ReservationID, ReservationDate, ReservationStatus, PickupDate, MemberID
+    FROM Reservation
+    WHERE EXTRACT(MONTH FROM ReservationDate) = v_monthNumber
+    AND EXTRACT(YEAR FROM ReservationDate) = v_year
+    ORDER BY MemberID, ReservationDate DESC;
+
+  CURSOR bookCursor(p_reservationID Reservation.ReservationID%TYPE) IS
+    SELECT RD.BookID, B.Title
+    FROM ReservationDetail RD
+    JOIN Book B ON RD.BookID = B.BookID
+    WHERE RD.ReservationID = p_reservationID;
+
+BEGIN
+  v_monthNumber := EXTRACT(MONTH FROM TO_DATE(UPPER(v_month), 'MONTH'));
+
+  DBMS_OUTPUT.PUT_LINE('===========================================================================================');
+  DBMS_OUTPUT.PUT_LINE('               LIBRARY RESERVATION REPORT');
+  DBMS_OUTPUT.PUT_LINE('                   MONTH: ' || UPPER(v_month) || ' ' || v_year);
+  DBMS_OUTPUT.PUT_LINE('===========================================================================================');
+  DBMS_OUTPUT.PUT_LINE(RPAD('MemberID', 12) || RPAD('ReservationID', 15) || RPAD('Date', 12) ||
+                       RPAD('Status', 12) || RPAD('Pickup', 15));
+  DBMS_OUTPUT.PUT_LINE('-------------------------------------------------------------------------------------------');
+
+  OPEN resCursor;
+  LOOP
+    FETCH resCursor INTO v_reservationID, v_reservationDate, v_reservationStatus, v_reservationPickupDate, v_memberID;
+    EXIT WHEN resCursor%NOTFOUND;
+
+    v_totalReservations := v_totalReservations + 1;
+
+    DBMS_OUTPUT.PUT_LINE(RPAD(v_memberID, 12) ||
+                         RPAD(v_reservationID, 15) ||
+                         RPAD(TO_CHAR(v_reservationDate, 'YYYY-MM-DD'), 12) ||
+                         RPAD(v_reservationStatus, 12) ||
+                         RPAD(NVL(TO_CHAR(v_reservationPickupDate, 'YYYY-MM-DD'), 'NO PICKUP DATE'), 15));
+
+    OPEN bookCursor(v_reservationID);
+    LOOP
+      FETCH bookCursor INTO v_bookID, v_bookTitle;
+      EXIT WHEN bookCursor%NOTFOUND;
+      DBMS_OUTPUT.PUT_LINE('    -> BookID:  ' || v_bookID || '   | Title: ' || v_bookTitle);
+    END LOOP;
+    CLOSE bookCursor;
+
+    DBMS_OUTPUT.PUT_LINE('-------------------------------------------------------------------------------------------');
+  END LOOP;
+  CLOSE resCursor;
+
+  DBMS_OUTPUT.PUT_LINE('Total Reservations: ' || v_totalReservations);
+  DBMS_OUTPUT.PUT_LINE('===========================================================================================');
+
+END;
+/
+
+EXEC prc_member_reservation_history('june', 2023)
