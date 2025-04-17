@@ -73,7 +73,6 @@ BEGIN
    DBMS_OUTPUT.PUT_LINE('Available Copies    : ' || v_totalCopies);
    DBMS_OUTPUT.PUT_LINE('Member ID           : ' || 0);
 
-   
    --Footer
    DBMS_OUTPUT.PUT_LINE(CHR(10));
    DBMS_OUTPUT.PUT_LINE(LPAD('=', 54, '=') || RPAD('End Of Report', 66, '='));
@@ -88,6 +87,7 @@ END;
 
 
 EXEC prc_add_new_book('','Jane Turing', 1234567890123,55.75,2023,'Technology', 10);
+EXEC prc_add_new_book('The AI Revolution','', 1234567890123,55.75,2023,'Technology', 10);
 EXEC prc_add_new_book('The AI Revolution','Jane Turing', 12345678903,55.75,2023,'Technology', 10);
 EXEC prc_add_new_book('The AI Revolution','Jane Turing', 1234567890123,0,2023,'Technology', 10);
 EXEC prc_add_new_book('The AI Revolution','Jane Turing', 1234567890123,55.75,0,'Technology', 10);
