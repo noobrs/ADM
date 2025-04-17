@@ -158,6 +158,12 @@ CREATE INDEX loan_date_idx ON Loan (LoanDate);
 DROP INDEX loan_duedate_idx;
 CREATE INDEX loan_duedate_idx ON Loan (DueDate);
 
+DROP INDEX idx_memberid_member;
+CREATE INDEX idx_memberid_member ON Member(MemberID);
+
+DROP INDEX idx_memberid_resdetail;
+CREATE INDEX idx_memberid_resdetail ON ReservationDetail(MemberID);
+
 DROP SEQUENCE loan_seq;
 DROP SEQUENCE book_seq;
 DROP SEQUENCE member_seq;
