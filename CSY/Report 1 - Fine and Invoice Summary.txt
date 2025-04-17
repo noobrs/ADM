@@ -1,0 +1,90 @@
+SET SERVEROUTPUT ON;
+SET LINESIZE 200;
+SET PAGESIZE 200;
+
+CREATE OR REPLACE PROCEDURE prc_fine_invoice_nested_all (
+    p_start_date IN DATE,
+    p_end_date   IN DATE
+) IS
+    TYPE status_table_type IS TABLE OF VARCHAR2(10);
+    status_list status_table_type := status_table_type('PAID', 'UNPAID');
+
+    CURSOR cur_fine_by_status(p_status VARCHAR2) IS
+        SELECT 
+            f.FineID, f.FineAmount, f.FineStatus, f.IssueDate, f.Remark,
+            f.InvoiceID, 
+            i.MemberID, i.PaymentMethod, i.PaymentDate, i.TotalAmount
+        FROM Fine f
+        LEFT JOIN Invoice i ON f.InvoiceID = i.InvoiceID
+        WHERE f.FineStatus = p_status 
+          AND (f.IssueDate BETWEEN p_start_date AND p_end_date)
+        ORDER BY f.IssueDate;
+
+    v_total_invoice_amt NUMBER := 0;
+    v_total_fine_amt    NUMBER := 0;
+    v_total_records     NUMBER := 0;
+
+    v_cat_invoice_amt   NUMBER := 0;
+    v_cat_fine_amt      NUMBER := 0;
+    v_cat_records       NUMBER := 0;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 145, '='));
+    DBMS_OUTPUT.PUT_LINE('<<-- Fine Summary Report (Including Unpaid) -->>' || CHR(10));
+    DBMS_OUTPUT.PUT_LINE('Report Period: ' || TO_CHAR(p_start_date, 'DD-MON-YYYY') || ' to ' || TO_CHAR(p_end_date, 'DD-MON-YYYY'));
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 145, '='));
+
+    FOR i IN 1 .. status_list.COUNT LOOP
+        v_cat_invoice_amt := 0;
+        v_cat_fine_amt := 0;
+        v_cat_records := 0;
+
+        DBMS_OUTPUT.PUT_LINE(CHR(10) || '>> ' || status_list(i) || ' FINES' || CHR(10));
+        DBMS_OUTPUT.PUT_LINE(
+            RPAD('InvoiceID', 12) || RPAD('MemberID', 12) || RPAD('FineID', 12) ||
+            RPAD('Amount', 10) || RPAD('Status', 8) || RPAD('IssueDate', 14) ||
+            RPAD('PayDate', 14) || RPAD('Method', 15) || RPAD('InvoiceTotal', 15) || 'Remark'
+        );
+        DBMS_OUTPUT.PUT_LINE(RPAD('-', 145, '-'));
+
+        FOR f_rec IN cur_fine_by_status(status_list(i)) LOOP
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD(NVL(f_rec.InvoiceID, '-'), 12) ||
+                RPAD(NVL(f_rec.MemberID, '-'), 12) ||
+                RPAD(f_rec.FineID, 12) ||
+                RPAD(TO_CHAR(f_rec.FineAmount, '9990.00'), 10) ||
+                RPAD(f_rec.FineStatus, 8) ||
+                RPAD(TO_CHAR(f_rec.IssueDate, 'DD-MON-YY'), 14) ||
+                RPAD(NVL(TO_CHAR(f_rec.PaymentDate, 'DD-MON-YY'), '-'), 14) ||
+                RPAD(NVL(f_rec.PaymentMethod, '-'), 15) ||
+                RPAD(NVL(TO_CHAR(f_rec.TotalAmount, '9990.00'), '-'), 15) ||
+                f_rec.Remark
+            );
+
+            v_cat_fine_amt     := v_cat_fine_amt + f_rec.FineAmount;
+            v_cat_invoice_amt  := v_cat_invoice_amt + NVL(f_rec.TotalAmount, 0);
+            v_cat_records      := v_cat_records + 1;
+            v_total_fine_amt   := v_total_fine_amt + f_rec.FineAmount;
+            v_total_invoice_amt:= v_total_invoice_amt + NVL(f_rec.TotalAmount, 0);
+            v_total_records    := v_total_records + 1;
+        END LOOP;
+
+        DBMS_OUTPUT.PUT_LINE(RPAD('-', 145, '-'));
+        DBMS_OUTPUT.PUT_LINE(
+            status_list(i) || ' Fine Records: ' || v_cat_records ||
+            ' | Subtotal Fine: RM ' || TO_CHAR(v_cat_fine_amt, '9990.00') ||
+            ' | Subtotal Invoice: RM ' || TO_CHAR(v_cat_invoice_amt, '9990.00')
+        );
+        DBMS_OUTPUT.PUT_LINE(RPAD('=', 145, '='));
+    END LOOP;
+
+    DBMS_OUTPUT.PUT_LINE('Total Records: ' || v_total_records ||
+                         ' | Total Fine Amount: RM ' || TO_CHAR(v_total_fine_amt, '9990.00') ||
+                         ' | Total Invoice Amount: RM ' || TO_CHAR(v_total_invoice_amt, '9990.00'));
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || '<<-- End of Report -->>');
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 145, '='));
+END;
+/
+
+EXEC prc_fine_invoice_nested_all(TO_DATE('01-01-2023','DD-MM-YYYY'), TO_DATE('31-12-2025','DD-MM-YYYY'));
+
+DROP PROCEDURE PRC_FINE_INVOICE_ALL;

@@ -1,0 +1,58 @@
+SET SERVEROUTPUT ON;
+SET LINESIZE 150;
+
+CREATE OR REPLACE PROCEDURE prc_update_invoice_method (
+    p_invoice_id   IN CHAR,
+    p_new_method   IN VARCHAR2
+)
+IS
+    v_old_method   Invoice.PaymentMethod%TYPE;
+BEGIN
+    -- Validate input
+    IF p_invoice_id IS NULL OR p_new_method IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20000, 'Invoice ID and new payment method cannot be null.');
+    END IF;
+
+    IF UPPER(p_new_method) NOT IN ('CASH', 'DEBIT CARD', 'CREDIT CARD', 'ONLINE BANKING') THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Invalid payment method. Use: Cash, Debit Card, Credit Card, or Online Banking.');
+    END IF;
+
+    -- Retrieve current method
+    SELECT PaymentMethod INTO v_old_method
+    FROM Invoice
+    WHERE InvoiceID = p_invoice_id;
+
+    -- Check if already the same
+    IF UPPER(v_old_method) = UPPER(p_new_method) THEN
+        RAISE_APPLICATION_ERROR(-20002, 'Invoice already uses this payment method.');
+    END IF;
+
+    -- Update the method
+    UPDATE Invoice
+    SET PaymentMethod = INITCAP(p_new_method)
+    WHERE InvoiceID = p_invoice_id;
+
+    DBMS_OUTPUT.PUT_LINE('Invoice ' || p_invoice_id || ' updated from "' || v_old_method || '" to "' || INITCAP(p_new_method) || '".');
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20003, 'Invoice ID not found : ' || p_invoice_id);
+            RAISE;
+END;
+/
+
+SELECT * FROM INVOICE;
+
+-- Valid
+EXEC prc_update_invoice_method('INV0000200', 'Online Banking');
+
+-- Try Input Again
+EXEC prc_update_invoice_method('INV0000200', 'Online Banking');
+
+-- Wrong PaymentMethod
+EXEC prc_update_invoice_method('INV0000200', 'Online');
+
+-- Null
+EXEC prc_update_invoice_method('INV0000200', NULL);
+
+DROP PROCEDURE PRC_UPDATE_INVOICE_METHOD;

@@ -1,0 +1,99 @@
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE PROCEDURE prc_updateFineAmount (
+    p_FineID        IN CHAR,
+    p_NewAmount     IN NUMBER,
+    p_PaymentMethod IN VARCHAR2
+)
+IS
+    v_OldAmount   Fine.FineAmount%TYPE;
+    v_Status      Fine.FineStatus%TYPE;
+    v_InvoiceID   Fine.InvoiceID%TYPE;
+    v_MemberID    Loan.MemberID%TYPE;
+    v_NewInvoice  Invoice.InvoiceID%TYPE;
+BEGIN
+    -- Input validation
+    IF p_NewAmount IS NULL OR p_NewAmount <= 0 THEN
+        RAISE_APPLICATION_ERROR(-20001, 'New fine amount must be greater than 0.');
+    END IF;
+
+    IF UPPER(p_PaymentMethod) NOT IN ('CASH', 'DEBIT CARD', 'CREDIT CARD', 'ONLINE BANKING') THEN
+        RAISE_APPLICATION_ERROR(-20002, 'Invalid payment method.');
+    END IF;
+
+    -- Fetch current fine info
+    SELECT f.FineAmount, f.FineStatus, f.InvoiceID, l.MemberID
+    INTO v_OldAmount, v_Status, v_InvoiceID, v_MemberID
+    FROM Fine f
+    JOIN LoanDetail ld ON f.FineID = ld.FineID
+    JOIN Loan l ON l.LoanID = ld.LoanID
+    WHERE f.FineID = p_FineID;
+
+    -- Log amount changes
+    DBMS_OUTPUT.PUT_LINE('Fine ID     : ' || p_FineID);
+    DBMS_OUTPUT.PUT_LINE('Old Amount  : RM ' || TO_CHAR(v_OldAmount, '9990.00'));
+    DBMS_OUTPUT.PUT_LINE('New Amount  : RM ' || TO_CHAR(p_NewAmount, '9990.00'));
+
+    -- Update Fine amount and remark
+    UPDATE Fine
+    SET FineAmount = p_NewAmount,
+        Remark = 'Admin Modified'
+    WHERE FineID = p_FineID;
+
+    -- Handle PAID status
+    IF v_Status = 'PAID' THEN
+        -- Remove and delete old invoice
+        IF v_InvoiceID IS NOT NULL THEN
+            UPDATE Fine SET InvoiceID = NULL WHERE FineID = p_FineID;
+            DELETE FROM Invoice WHERE InvoiceID = v_InvoiceID;
+        END IF;
+
+        -- Generate new Invoice ID
+        SELECT 'INV' || LPAD(TO_CHAR(TO_NUMBER(SUBSTR(NVL(MAX(InvoiceID), 'INV0000000'), 4)) + 1), 7, '0')
+        INTO v_NewInvoice
+        FROM Invoice;
+
+        -- Insert new invoice
+        INSERT INTO Invoice (InvoiceID, PaymentDate, PaymentMethod, TotalAmount, MemberID)
+        VALUES (v_NewInvoice, SYSDATE, INITCAP(p_PaymentMethod), p_NewAmount, v_MemberID);
+
+        -- Link fine with new invoice
+        UPDATE Fine
+        SET InvoiceID = v_NewInvoice
+        WHERE FineID = p_FineID;
+
+        DBMS_OUTPUT.PUT_LINE('Invoice regenerated: ' || v_NewInvoice);
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('Status is UNPAID — no invoice changes made.');
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE('Remark updated to: Admin Modified');
+    DBMS_OUTPUT.PUT_LINE('Fine update complete.');
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Error: Fine record not found.');
+    WHEN OTHERS THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Unexpected error: ' || SQLERRM);
+END;
+/
+
+SELECT * FROM FINE;
+SELECT * FROM FINE WHERE FineID = 'FIN0000100';
+SELECT * FROM INVOICE WHERE InvoiceID = 'INV0000200';
+
+-- Valid Test Case, Update Payment Amount
+EXEC prc_updateFineAmount('FIN0000100', 25, 'Credit Card');
+
+-- Invalid, Amount > 0
+EXEC prc_updateFineAmount('FIN0000100', 0, 'Credit Card');
+
+-- Invalid, Wrong Payment Method
+EXEC prc_updateFineAmount('FIN0000100', 25, 'Credit');
+
+-- Invalid, Cant found fine id
+EXEC prc_updateFineAmount('FIN00001001', 25, 'Credit Card');
+
+DROP PROCEDURE PRC_UPDATEFINEAMOUNT;

@@ -1,0 +1,110 @@
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE TRIGGER trg_generate_fine
+BEFORE INSERT ON LoanDetail
+FOR EACH ROW
+DECLARE
+    v_DueDate   Loan.DueDate%TYPE;
+    v_Price     Book.Price%TYPE;
+    v_FineID    Fine.FineID%TYPE;
+    v_Amount    Fine.FineAmount%TYPE;
+    v_Remark    Fine.Remark%TYPE;
+BEGIN
+    -- Only trigger if status requires fine and no fine assigned yet
+    IF :NEW.Status IN ('LATE RETURNED', 'SCRATCH', 'LOSS') AND :NEW.FineID IS NULL THEN
+
+        -- Get loan due date
+        SELECT DueDate INTO v_DueDate
+        FROM Loan
+        WHERE LoanID = :NEW.LoanID;
+
+        -- Calculate fine amount and remark
+        IF :NEW.Status = 'LATE RETURNED' THEN
+            IF TRUNC(:NEW.ReturnDate) > TRUNC(v_DueDate) THEN
+                v_Amount := (TRUNC(:NEW.ReturnDate) - TRUNC(v_DueDate)) * 2;
+                v_Remark := 'Late Return, ' || (TRUNC(:NEW.ReturnDate) - TRUNC(v_DueDate)) || ' days';
+            ELSE
+                RETURN;
+            END IF;
+
+        ELSIF :NEW.Status = 'SCRATCH' THEN
+            v_Amount := 5;
+            v_Remark := 'Book Scratch';
+
+        ELSIF :NEW.Status = 'LOSS' THEN
+            SELECT Price INTO v_Price FROM Book WHERE BookID = :NEW.BookID;
+            v_Amount := v_Price;
+            v_Remark := 'Book Lost';
+
+            -- Deduct stock
+            UPDATE Book
+            SET TotalCopies = TotalCopies - 1,
+                AvailableCopies = AvailableCopies - 1
+            WHERE BookID = :NEW.BookID;
+        END IF;
+
+        -- Generate FineID
+        SELECT 'FIN' || LPAD(TO_CHAR(TO_NUMBER(SUBSTR(NVL(MAX(FineID), 'FIN0000000'), 4)) + 1), 7, '0')
+        INTO v_FineID
+        FROM Fine;
+
+        -- Insert into Fine table
+        INSERT INTO Fine (FineID, FineAmount, FineStatus, IssueDate, Remark)
+        VALUES (v_FineID, v_Amount, 'UNPAID', SYSDATE, v_Remark);
+
+        -- Assign to the row being inserted
+        :NEW.FineID := v_FineID;
+    END IF;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Trigger Error: ' || SQLERRM);
+END;
+/
+
+
+Test Case
+-- Make sure the Loan's DueDate is earlier than ReturnDate
+-- LATE RETURNED
+INSERT INTO Loan (LoanID, LoanDate, DueDate, MemberID)
+VALUES ('LOA0001001', SYSDATE - 10, SYSDATE - 5, 'MEM0000010');
+
+INSERT INTO LoanDetail (LoanID, BookID, ReturnDate, ExtensionCount, ExtendedDueDate, Status, FineID)
+VALUES ('LOA0001001', 'BOK0000010', SYSDATE, 0, NULL, 'LATE RETURNED', NULL);
+
+-- Verify fine:
+SELECT * FROM Fine WHERE FineID = (
+  SELECT FineID FROM LoanDetail WHERE LoanID = 'LOA0001001' AND BookID = 'BOK0000010'
+);
+
+
+-- SCRATCH
+INSERT INTO Loan (LoanID, LoanDate, DueDate, MemberID)
+VALUES ('LOA0001002', SYSDATE - 7, SYSDATE - 2, 'MEM0000010');
+
+INSERT INTO LoanDetail (LoanID, BookID, ReturnDate, ExtensionCount, ExtendedDueDate, Status, FineID)
+VALUES ('LOA0001002', 'BOK0000011', SYSDATE, 0, NULL, 'SCRATCH', NULL);
+
+-- Verify fine:
+SELECT * FROM Fine WHERE FineID = (
+  SELECT FineID FROM LoanDetail WHERE LoanID = 'LOA0001002' AND BookID = 'BOK0000011'
+);
+
+-- LOSS
+-- Check book stock before
+SELECT TotalCopies, AvailableCopies FROM Book WHERE BookID = 'BOK0000012';
+
+INSERT INTO Loan (LoanID, LoanDate, DueDate, MemberID)
+VALUES ('LOA0001003', SYSDATE - 5, SYSDATE - 1, 'MEM0000010');
+
+INSERT INTO LoanDetail (LoanID, BookID, ReturnDate, ExtensionCount, ExtendedDueDate, Status, FineID)
+VALUES ('LOA0001003', 'BOK0000012', SYSDATE, 0, NULL, 'LOSS', NULL);
+
+-- Verify fine
+SELECT * FROM Fine WHERE FineID = (
+  SELECT FineID FROM LoanDetail WHERE LoanID = 'LOA0001003' AND BookID = 'BOK0000012'
+);
+
+-- Check book stock again (should be decreased by 1)
+SELECT TotalCopies, AvailableCopies FROM Book WHERE BookID = 'BOK0000012';
+

@@ -1,0 +1,79 @@
+SET SERVEROUTPUT ON;
+
+DROP TABLE InvoiceAuditLog;
+
+CREATE TABLE InvoiceAuditLog (
+    InvoiceID     CHAR(15),
+    MemberID      CHAR(15),
+    ActionType    VARCHAR2(10),
+    OldAmount     NUMBER(8,2),
+    NewAmount     NUMBER(8,2),
+    OldMethod     VARCHAR2(20),
+    NewMethod     VARCHAR2(20),
+    OldDate       DATE,
+    NewDate       DATE,
+    ChangeDate    DATE DEFAULT SYSDATE
+);
+
+
+CREATE OR REPLACE TRIGGER trg_invoice_change_audit
+AFTER INSERT OR UPDATE OR DELETE ON Invoice
+FOR EACH ROW
+BEGIN
+    IF INSERTING THEN
+        INSERT INTO InvoiceAuditLog (
+            InvoiceID, MemberID, ActionType,
+            NewAmount, NewMethod, NewDate
+        ) VALUES (
+            :NEW.InvoiceID, :NEW.MemberID, 'INSERT',
+            :NEW.TotalAmount, :NEW.PaymentMethod, :NEW.PaymentDate
+        );
+
+    ELSIF UPDATING THEN
+        -- Only log if values actually changed
+        IF (:OLD.TotalAmount != :NEW.TotalAmount OR
+            :OLD.PaymentMethod != :NEW.PaymentMethod OR
+            :OLD.PaymentDate != :NEW.PaymentDate) THEN
+
+            INSERT INTO InvoiceAuditLog (
+                InvoiceID, MemberID, ActionType,
+                OldAmount, NewAmount,
+                OldMethod, NewMethod,
+                OldDate, NewDate
+            ) VALUES (
+                :OLD.InvoiceID, :OLD.MemberID, 'UPDATE',
+                :OLD.TotalAmount, :NEW.TotalAmount,
+                :OLD.PaymentMethod, :NEW.PaymentMethod,
+                :OLD.PaymentDate, :NEW.PaymentDate
+            );
+        END IF;
+
+    ELSIF DELETING THEN
+        INSERT INTO InvoiceAuditLog (
+            InvoiceID, MemberID, ActionType,
+            OldAmount, OldMethod, OldDate
+        ) VALUES (
+            :OLD.InvoiceID, :OLD.MemberID, 'DELETE',
+            :OLD.TotalAmount, :OLD.PaymentMethod, :OLD.PaymentDate
+        );
+    END IF;
+END;
+/
+
+TEST CASE
+-- Insert
+INSERT INTO Invoice (InvoiceID, PaymentDate, PaymentMethod, TotalAmount, MemberID)
+VALUES ('INV999001', SYSDATE, 'Credit Card', 120, 'MEM0000010');
+
+-- Update
+UPDATE Invoice
+SET PaymentMethod = 'Cash', TotalAmount = 130
+WHERE InvoiceID = 'INV999001';
+
+-- Delete
+DELETE FROM Invoice WHERE InvoiceID = 'INV999001';
+
+-- Check audit log
+SELECT * FROM InvoiceAuditLog WHERE InvoiceID = 'INV999001';
+
+
