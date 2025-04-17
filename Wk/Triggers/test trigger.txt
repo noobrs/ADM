@@ -1,64 +1,64 @@
-SET SERVEROUTPUT ON;
-SET LINESIZE 200;
-SET PAGESIZE 120;
+SET LINESIZE 200
+SET PAGESIZE 120
 
-CREATE TABLE ReservationLimitLog (
-    MemberID           CHAR(10),
-    ReservationID      CHAR(10),
-    AttemptedDate      DATE,
-    ActiveReservationCount NUMBER,
-    Message            VARCHAR2(255)
+COLUMN ActionType FORMAT A10
+COLUMN BookID FORMAT A8
+COLUMN Title FORMAT A30
+COLUMN Author FORMAT A25
+COLUMN Isbn FORMAT A13
+COLUMN PublicationYear FORMAT 9999
+COLUMN Genre FORMAT A15
+COLUMN ActionDate FORMAT A26
+
+DROP TABLE BookAudit;
+
+CREATE TABLE BookAudit (
+    ActionType VARCHAR2(10) NOT NULL, 
+    BookID CHAR(10),
+    Title VARCHAR2(255),
+    Author VARCHAR2(255),
+    Isbn CHAR(13),
+    PublicationYear NUMBER(4,0),
+    Genre VARCHAR2(50),
+    ActionDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-
-CREATE OR REPLACE TRIGGER trg_check_active_reservations
-BEFORE INSERT ON Reservation
+CREATE OR REPLACE TRIGGER Book_Audit_Trigger
+AFTER INSERT OR UPDATE OR DELETE ON Book
 FOR EACH ROW
-DECLARE
-    v_active_count NUMBER;
-    v_error_message VARCHAR2(255);
 BEGIN
-    SELECT COUNT(*)
-    INTO v_active_count
-    FROM Reservation
-    WHERE MemberID = :NEW.MemberID
-      AND UPPER(ReservationStatus) IN ('PENDING', 'READY');
-
-    -- block the insert and log it
-    IF v_active_count >= 3 THEN
-        -- Prepare error message
-        v_error_message := 'Member ' || :NEW.MemberID || ' already has ' || v_active_count || ' active reservations. Max is 3.';
-
-        DECLARE
-            PRAGMA AUTONOMOUS_TRANSACTION;
-        BEGIN
-            INSERT INTO ReservationLimitLog (
-                MemberID, ReservationID, AttemptedDate, ActiveReservationCount, Message
-            ) VALUES (
-                :NEW.MemberID, :NEW.ReservationID, SYSDATE, v_active_count, v_error_message
-            );
-            COMMIT;
-        END;
-
-        DBMS_OUTPUT.PUT_LINE('--- Reservation Limit Exceeded ---');
-        DBMS_OUTPUT.PUT_LINE('Member ID         : ' || :NEW.MemberID);
-        DBMS_OUTPUT.PUT_LINE('Attempted Date    : ' || TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS'));
-        DBMS_OUTPUT.PUT_LINE('Current Active    : ' || v_active_count);
-        DBMS_OUTPUT.PUT_LINE('Blocked Reservation ID : ' || :NEW.ReservationID);
-
-        -- Raise error to stop insert
-        RAISE_APPLICATION_ERROR(-20000, v_error_message);
+    IF INSERTING THEN
+        INSERT INTO BookAudit (
+            ActionType, BookID, Title, Author, Isbn, PublicationYear, Genre, ActionDate
+        ) VALUES (
+            'INSERT', :NEW.BookID, :NEW.Title, :NEW.Author, :NEW.Isbn, 
+            :NEW.PublicationYear, :NEW.Genre, CURRENT_TIMESTAMP
+        );
+    ELSIF UPDATING THEN
+        INSERT INTO BookAudit (
+            ActionType, BookID, Title, Author, Isbn, PublicationYear, Genre, ActionDate
+        ) VALUES (
+            'UPDATE', :NEW.BookID, :NEW.Title, :NEW.Author, :NEW.Isbn, 
+            :NEW.PublicationYear, :NEW.Genre, CURRENT_TIMESTAMP
+        );
+    ELSIF DELETING THEN
+        INSERT INTO BookAudit (
+            ActionType, BookID, Title, Author, Isbn, PublicationYear, Genre, ActionDate
+        ) VALUES (
+            'DELETE', :OLD.BookID, :OLD.Title, :OLD.Author, :OLD.Isbn, 
+            :OLD.PublicationYear, :OLD.Genre, CURRENT_TIMESTAMP
+        );
     END IF;
 END;
 /
 
+--Test Data
+INSERT INTO Book (BookID, Title, Author, Isbn, Price, PublicationYear, Genre, TotalCopies, AvailableCopies, BorrowedCount)
+VALUES ('BOK0000021', 'Oracle for Dummies', 'John Doe', '9781234567890', 39.99, 2024, 'Tech', 100, 80, 20);
 
--- First, insert 3 reservations (all in 'PENDING' status for the same member)
-INSERT INTO Reservation VALUES ('RES0000101', SYSDATE, 'PENDING', NULL, NULL, 'MEM0000001');
-INSERT INTO Reservation VALUES ('RES0000102', SYSDATE + 1, 'PENDING', NULL, NULL, 'MEM0000001');
-INSERT INTO Reservation VALUES ('RES0000103', SYSDATE + 2, 'PENDING', NULL, NULL, 'MEM0000001');
+UPDATE Book
+SET AvailableCopies = 75
+WHERE BookID = 'BOK0000021';
 
--- Now, try to insert a 4th reservation for the same member (This should raise the error)
-INSERT INTO Reservation VALUES ('RES0000104', SYSDATE + 3, 'PENDING', NULL, NULL, 'MEM0000001');
+DELETE FROM Book WHERE BookID = 'BOK0000021';
 
-select * from reservationlimitlog;
