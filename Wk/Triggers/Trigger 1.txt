@@ -1,0 +1,78 @@
+SET SERVEROUTPUT ON;
+SET LINESIZE 200;
+SET PAGESIZE 120;
+
+DROP TABLE ReservationLimitLog;
+
+CREATE TABLE ReservationLimitLog (
+    MemberID           CHAR(10),
+    ReservationID      CHAR(10),
+    AttemptedDate      DATE,
+    ActiveReservationCount NUMBER,
+    Message            VARCHAR2(255)
+);
+
+-- For Log Purpose
+CREATE OR REPLACE PROCEDURE LogReservationLimitViolation (
+    p_MemberID CHAR,
+    p_ReservationID CHAR,
+    p_AttemptedDate DATE,
+    p_ActiveReservationCount NUMBER,
+    p_Message VARCHAR2
+) IS
+    PRAGMA AUTONOMOUS_TRANSACTION;
+BEGIN
+    INSERT INTO ReservationLimitLog (
+        MemberID, ReservationID, AttemptedDate, ActiveReservationCount, Message
+    ) VALUES (
+        p_MemberID, p_ReservationID, p_AttemptedDate, p_ActiveReservationCount, p_Message
+    );
+    COMMIT;
+END;
+/
+
+CREATE OR REPLACE TRIGGER trg_check_active_reservations
+BEFORE INSERT ON Reservation
+FOR EACH ROW
+DECLARE
+    v_active_count NUMBER;
+    v_error_message VARCHAR2(255);
+BEGIN
+    SELECT COUNT(*)
+    INTO v_active_count
+    FROM Reservation
+    WHERE MemberID = :NEW.MemberID
+      AND UPPER(ReservationStatus) IN ('PENDING', 'READY');
+
+    IF v_active_count >= 3 THEN
+        v_error_message := 'Member ' || :NEW.MemberID || ' already has ' || v_active_count || ' active reservations. Max is 3.';
+
+        LogReservationLimitViolation(
+            :NEW.MemberID, :NEW.ReservationID, SYSDATE, v_active_count, v_error_message
+        );
+
+        DBMS_OUTPUT.PUT_LINE('--- Reservation Limit Exceeded ---');
+        DBMS_OUTPUT.PUT_LINE('Member ID         : ' || :NEW.MemberID);
+        DBMS_OUTPUT.PUT_LINE('Attempted Date    : ' || TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS'));
+        DBMS_OUTPUT.PUT_LINE('Current Active    : ' || v_active_count);
+        DBMS_OUTPUT.PUT_LINE('Blocked Reservation ID : ' || :NEW.ReservationID);
+
+        RAISE_APPLICATION_ERROR(-20001, v_error_message);
+    END IF;
+END;
+/
+
+-- Test Data
+DELETE FROM Reservation WHERE reservationID = 'RES0000101';
+DELETE FROM Reservation WHERE reservationID = 'RES0000102';
+DELETE FROM Reservation WHERE reservationID = 'RES0000103';
+DELETE FROM Reservation WHERE reservationID = 'RES0000104';
+INSERT INTO Reservation VALUES ('RES0000101', SYSDATE, 'PENDING', NULL, NULL, 'MEM0000001');
+INSERT INTO Reservation VALUES ('RES0000102', SYSDATE + 1, 'PENDING', NULL, NULL, 'MEM0000001');
+INSERT INTO Reservation VALUES ('RES0000103', SYSDATE + 2, 'PENDING', NULL, NULL, 'MEM0000001');
+
+-- 4th will get error
+INSERT INTO Reservation VALUES ('RES0000104', SYSDATE + 3, 'PENDING', NULL, NULL, 'MEM0000001');
+
+--check log that exceed the reservation limit
+select * from ReservationLimitLog;
