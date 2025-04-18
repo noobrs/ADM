@@ -1,0 +1,85 @@
+SET SERVEROUTPUT ON;
+SET LINESIZE 230;
+SET PAGESIZE 150;
+
+CREATE INDEX idx_reservation_year_only 
+ON Reservation (EXTRACT(YEAR FROM ReservationDate));
+
+CREATE OR REPLACE TYPE Reservation_Status_Info AS OBJECT (
+    StatusDesc VARCHAR2(30),
+    WaitDays   NUMBER
+);
+/
+CREATE OR REPLACE FUNCTION Get_Reservation_Status(
+    p_res_date    IN DATE,
+    p_pickup_date IN DATE,
+    p_avail_date  IN DATE
+) RETURN Reservation_Status_Info
+IS
+    v_status Reservation_Status_Info;
+BEGIN
+    IF p_pickup_date IS NOT NULL THEN
+        v_status := Reservation_Status_Info('Picked Up', p_pickup_date - p_res_date);
+    ELSE
+        v_status := Reservation_Status_Info('Cancelled', p_avail_date - p_res_date);
+    END IF;
+    RETURN v_status;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE Detail_Reservation_Wait_Times(p_year IN NUMBER)
+IS
+    CURSOR resv_cur IS
+        SELECT R.ReservationID, R.MemberID, R.ReservationDate, R.PickupDate,
+               RD.BookID, RD.AvailableDate, RD.Status AS AvailabilityStatus
+        FROM Reservation R
+        JOIN ReservationDetail RD ON R.ReservationID = RD.ReservationID
+        WHERE EXTRACT(YEAR FROM R.ReservationDate) = p_year
+        ORDER BY R.ReservationDate;
+
+    CURSOR book_cur(p_book_id Book.BookID%TYPE) IS
+        SELECT Title FROM Book WHERE BookID = p_book_id;
+
+    v_resv_row resv_cur%ROWTYPE;
+    v_book_row book_cur%ROWTYPE;
+
+    v_result Reservation_Status_Info;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 150, '='));
+    DBMS_OUTPUT.PUT_LINE(RPAD('Reservation ID', 20) || RPAD('Title', 60) || RPAD('Reserved', 15) ||
+                         RPAD('Available', 15) || RPAD('Status', 15) || 'Wait Days');
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 150, '='));
+
+    OPEN resv_cur;
+    LOOP
+        FETCH resv_cur INTO v_resv_row;
+        EXIT WHEN resv_cur%NOTFOUND;
+
+        OPEN book_cur(v_resv_row.BookID);
+        FETCH book_cur INTO v_book_row;
+        CLOSE book_cur;
+
+        v_result := Get_Reservation_Status(
+                        v_resv_row.ReservationDate,
+                        v_resv_row.PickupDate,
+                        v_resv_row.AvailableDate
+                    );
+
+        -- Output
+        DBMS_OUTPUT.PUT_LINE(
+            RPAD(v_resv_row.ReservationID, 20) ||
+            RPAD(SUBSTR(v_book_row.Title, 1, 58), 60) ||
+            RPAD(TO_CHAR(v_resv_row.ReservationDate, 'YYYY-MM-DD'), 15) ||
+            RPAD(TO_CHAR(v_resv_row.AvailableDate, 'YYYY-MM-DD'), 15) ||
+            RPAD(v_result.StatusDesc, 15) ||
+            v_result.WaitDays
+        );
+    END LOOP;
+    CLOSE resv_cur;
+
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 150, '='));
+END;
+/
+
+--Output
+EXEC Detail_Reservation_Wait_Times(2023);
