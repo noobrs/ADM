@@ -25,6 +25,8 @@ CREATE OR REPLACE PROCEDURE BookUsageReaderProfileReport IS
     v_male_count    NUMBER;
     v_female_count  NUMBER;
 BEGIN
+    DBMS_OUTPUT.PUT_LINE('>=== Book Usage And Reader Profile Report ===<');
+
     DBMS_OUTPUT.PUT_LINE(RPAD('Title', 65) || RPAD('Author', 25) || RPAD('PubYear', 10) ||
                          RPAD('Borrowed', 10) || RPAD('Readers', 10) || RPAD('AvgAge', 10) ||
                          RPAD('Male', 8) || RPAD('Female', 8));

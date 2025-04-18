@@ -2,8 +2,9 @@ SET SERVEROUTPUT ON;
 SET LINESIZE 230;
 SET PAGESIZE 150;
 
-CREATE INDEX idx_reservation_year_only 
-ON Reservation (EXTRACT(YEAR FROM ReservationDate));
+DROP INDEX idx_reservation_date_range; 
+CREATE INDEX idx_reservation_date_range 
+ON Reservation (ReservationDate);
 
 CREATE OR REPLACE TYPE Reservation_Status_Info AS OBJECT (
     StatusDesc VARCHAR2(30),
@@ -27,14 +28,17 @@ BEGIN
 END;
 /
 
-CREATE OR REPLACE PROCEDURE Detail_Reservation_Wait_Times(p_year IN NUMBER)
+CREATE OR REPLACE PROCEDURE Detail_Reservation_Wait_Times(
+    p_from_date IN DATE,
+    p_to_date   IN DATE
+)
 IS
     CURSOR resv_cur IS
         SELECT R.ReservationID, R.MemberID, R.ReservationDate, R.PickupDate,
                RD.BookID, RD.AvailableDate, RD.Status AS AvailabilityStatus
         FROM Reservation R
         JOIN ReservationDetail RD ON R.ReservationID = RD.ReservationID
-        WHERE EXTRACT(YEAR FROM R.ReservationDate) = p_year
+        WHERE R.ReservationDate BETWEEN p_from_date AND p_to_date
         ORDER BY R.ReservationDate;
 
     CURSOR book_cur(p_book_id Book.BookID%TYPE) IS
@@ -45,6 +49,9 @@ IS
 
     v_result Reservation_Status_Info;
 BEGIN
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 150, '='));
+    DBMS_OUTPUT.PUT_LINE('Detail Report of Reservation Wait Times from ' ||
+                         TO_CHAR(p_from_date, 'YYYY-MM-DD') || ' to ' || TO_CHAR(p_to_date, 'YYYY-MM-DD'));
     DBMS_OUTPUT.PUT_LINE(RPAD('=', 150, '='));
     DBMS_OUTPUT.PUT_LINE(RPAD('Reservation ID', 20) || RPAD('Title', 60) || RPAD('Reserved', 15) ||
                          RPAD('Available', 15) || RPAD('Status', 15) || 'Wait Days');
@@ -65,7 +72,6 @@ BEGIN
                         v_resv_row.AvailableDate
                     );
 
-        -- Output
         DBMS_OUTPUT.PUT_LINE(
             RPAD(v_resv_row.ReservationID, 20) ||
             RPAD(SUBSTR(v_book_row.Title, 1, 58), 60) ||
@@ -81,5 +87,6 @@ BEGIN
 END;
 /
 
+
 --Output
-EXEC Detail_Reservation_Wait_Times(2023);
+EXEC Detail_Reservation_Wait_Times(TO_DATE('2023-01-01', 'YYYY-MM-DD'), TO_DATE('2023-06-30', 'YYYY-MM-DD'));
