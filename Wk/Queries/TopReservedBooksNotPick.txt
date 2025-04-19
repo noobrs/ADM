@@ -1,0 +1,36 @@
+SET LINESIZE 100;
+SET PAGESIZE 100;
+
+CREATE OR REPLACE VIEW vw_books_not_picked_up AS
+    SELECT 
+        b.BookID,
+        b.Title,
+        b.Author,
+        COUNT(rd.ReservationID) AS UnpickedReservations
+    FROM Reservation r
+    JOIN ReservationDetail rd ON r.ReservationID = rd.ReservationID
+    JOIN Book b ON rd.BookID = b.BookID
+    JOIN Member m ON r.MemberID = m.MemberID
+    WHERE r.PickupDate IS NULL 
+    AND r.ReservationStatus = 'READY'
+    GROUP BY b.BookID, b.Title, b.Author
+    HAVING COUNT(rd.ReservationID) >= 1
+    ORDER BY COUNT(rd.ReservationID) DESC;
+
+TTITLE CENTER '<=== Reserved Books Not Picked Up Yet ===>' SKIP 2
+REPFOOTER CENTER '<--- END OF REPORT --->'
+
+COLUMN RowNum FORMAT 999 HEADING 'No.'
+COLUMN BookID FORMAT A12 HEADING 'Book ID'
+COLUMN Title FORMAT A41 HEADING 'Book Title'
+COLUMN Author FORMAT A22 HEADING 'Author Name'
+COLUMN UnpickedReservations FORMAT 99999 HEADING 'Unpicked Reservations'
+
+SELECT * 
+FROM vw_books_not_picked_up;
+
+CLEAR COLUMNS;
+CLEAR BREAKS;
+CLEAR COMPUTES;
+TTITLE OFF;
+REPFOOTER OFF;

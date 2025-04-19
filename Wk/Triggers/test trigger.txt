@@ -1,0 +1,64 @@
+SET LINESIZE 200
+SET PAGESIZE 120
+
+COLUMN ActionType FORMAT A10
+COLUMN BookID FORMAT A8
+COLUMN Title FORMAT A30
+COLUMN Author FORMAT A25
+COLUMN Isbn FORMAT A13
+COLUMN PublicationYear FORMAT 9999
+COLUMN Genre FORMAT A15
+COLUMN ActionDate FORMAT A26
+
+DROP TABLE BookAudit;
+
+CREATE TABLE BookAudit (
+    ActionType VARCHAR2(10) NOT NULL, 
+    BookID CHAR(10),
+    Title VARCHAR2(255),
+    Author VARCHAR2(255),
+    Isbn CHAR(13),
+    PublicationYear NUMBER(4,0),
+    Genre VARCHAR2(50),
+    ActionDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE OR REPLACE TRIGGER Book_Audit_Trigger
+AFTER INSERT OR UPDATE OR DELETE ON Book
+FOR EACH ROW
+BEGIN
+    IF INSERTING THEN
+        INSERT INTO BookAudit (
+            ActionType, BookID, Title, Author, Isbn, PublicationYear, Genre, ActionDate
+        ) VALUES (
+            'INSERT', :NEW.BookID, :NEW.Title, :NEW.Author, :NEW.Isbn, 
+            :NEW.PublicationYear, :NEW.Genre, CURRENT_TIMESTAMP
+        );
+    ELSIF UPDATING THEN
+        INSERT INTO BookAudit (
+            ActionType, BookID, Title, Author, Isbn, PublicationYear, Genre, ActionDate
+        ) VALUES (
+            'UPDATE', :NEW.BookID, :NEW.Title, :NEW.Author, :NEW.Isbn, 
+            :NEW.PublicationYear, :NEW.Genre, CURRENT_TIMESTAMP
+        );
+    ELSIF DELETING THEN
+        INSERT INTO BookAudit (
+            ActionType, BookID, Title, Author, Isbn, PublicationYear, Genre, ActionDate
+        ) VALUES (
+            'DELETE', :OLD.BookID, :OLD.Title, :OLD.Author, :OLD.Isbn, 
+            :OLD.PublicationYear, :OLD.Genre, CURRENT_TIMESTAMP
+        );
+    END IF;
+END;
+/
+
+--Test Data
+INSERT INTO Book (BookID, Title, Author, Isbn, Price, PublicationYear, Genre, TotalCopies, AvailableCopies, BorrowedCount)
+VALUES ('BOK0000021', 'Oracle for Dummies', 'John Doe', '9781234567890', 39.99, 2024, 'Tech', 100, 80, 20);
+
+UPDATE Book
+SET AvailableCopies = 75
+WHERE BookID = 'BOK0000021';
+
+DELETE FROM Book WHERE BookID = 'BOK0000021';
+

@@ -1,0 +1,62 @@
+SET SERVEROUTPUT ON;
+SET LINESIZE 230;
+SET PAGESIZE 150;
+
+CREATE OR REPLACE PROCEDURE BookUsageReaderProfileReport IS
+    CURSOR book_cur IS
+        SELECT BookID, Title, Author, PublicationYear
+        FROM Book;
+
+    CURSOR usage_cur(p_bookid Book.BookID%TYPE) IS
+        SELECT COUNT(DISTINCT ld.LoanID) AS borrow_count,
+               COUNT(DISTINCT l.MemberID) AS reader_count,
+               ROUND(AVG(EXTRACT(YEAR FROM SYSDATE) - EXTRACT(YEAR FROM m.DOB))) AS avg_age,
+               COUNT(CASE WHEN m.Gender = 'M' THEN 1 END) AS male_count,
+               COUNT(CASE WHEN m.Gender = 'F' THEN 1 END) AS female_count
+        FROM LoanDetail ld
+        JOIN Loan l ON ld.LoanID = l.LoanID
+        JOIN Member m ON l.MemberID = m.MemberID
+        WHERE ld.BookID = p_bookid;
+
+    v_book_rec      book_cur%ROWTYPE;
+    v_borrowed      NUMBER;
+    v_readers       NUMBER;
+    v_avg_age       NUMBER;
+    v_male_count    NUMBER;
+    v_female_count  NUMBER;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('>=== Book Usage And Reader Profile Report ===<');
+
+    DBMS_OUTPUT.PUT_LINE(RPAD('Title', 65) || RPAD('Author', 25) || RPAD('PubYear', 10) ||
+                         RPAD('Borrowed', 10) || RPAD('Readers', 10) || RPAD('AvgAge', 10) ||
+                         RPAD('Male', 8) || RPAD('Female', 8));
+    DBMS_OUTPUT.PUT_LINE(RPAD('-', 150, '-'));
+
+    OPEN book_cur;
+    LOOP
+        FETCH book_cur INTO v_book_rec;
+        EXIT WHEN book_cur%NOTFOUND;
+
+        OPEN usage_cur(v_book_rec.BookID);
+        LOOP
+            FETCH usage_cur INTO v_borrowed, v_readers, v_avg_age, v_male_count, v_female_count;
+            EXIT WHEN usage_cur%NOTFOUND;
+
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD(v_book_rec.Title, 65) ||
+                RPAD(v_book_rec.Author, 25) ||
+                RPAD(v_book_rec.PublicationYear, 10) ||
+                RPAD(NVL(v_borrowed, 0), 10) ||
+                RPAD(NVL(v_readers, 0), 10) ||
+                RPAD(NVL(v_avg_age, 0), 10) ||
+                RPAD(NVL(v_male_count, 0), 8) ||
+                RPAD(NVL(v_female_count, 0), 8)
+            );
+        END LOOP;
+        CLOSE usage_cur;
+    END LOOP;
+    CLOSE book_cur;
+END;
+/
+
+EXEC BookUsageReaderProfileReport;

@@ -1,0 +1,78 @@
+SET LINESIZE 60;
+SET PAGESIZE 100;
+
+CREATE OR REPLACE VIEW View_BorrowedBooks_ByAgeGroup AS
+WITH AgeGroups AS (
+    SELECT 'Teenagers' AS AgeGroup FROM DUAL
+    UNION ALL
+    SELECT 'Adults' FROM DUAL
+    UNION ALL
+    SELECT 'Senior Citizens' FROM DUAL
+),
+Genres AS (
+    SELECT DISTINCT Genre FROM Book
+),
+ActualBorrowings AS (
+    SELECT 
+        B.Genre,
+        CASE 
+            WHEN FLOOR(MONTHS_BETWEEN(L.LoanDate, M.DOB) / 12) BETWEEN 1 AND 17 THEN 'Teenagers'
+            WHEN FLOOR(MONTHS_BETWEEN(L.LoanDate, M.DOB) / 12) BETWEEN 18 AND 49 THEN 'Adults'
+            WHEN FLOOR(MONTHS_BETWEEN(L.LoanDate, M.DOB) / 12) >= 50 THEN 'Senior Citizens'
+            ELSE 'Unknown'
+        END AS AgeGroup,
+        COUNT(*) AS Quantity
+    FROM 
+        LoanDetail LD
+        JOIN Loan L ON LD.LoanID = L.LoanID
+        JOIN Member M ON L.MemberID = M.MemberID
+        JOIN Book B ON LD.BookID = B.BookID
+    GROUP BY 
+        B.Genre,
+        CASE 
+            WHEN FLOOR(MONTHS_BETWEEN(L.LoanDate, M.DOB) / 12) BETWEEN 1 AND 17 THEN 'Teenagers'
+            WHEN FLOOR(MONTHS_BETWEEN(L.LoanDate, M.DOB) / 12) BETWEEN 18 AND 49 THEN 'Adults'
+            WHEN FLOOR(MONTHS_BETWEEN(L.LoanDate, M.DOB) / 12) >= 50 THEN 'Senior Citizens'
+            ELSE 'Unknown'
+        END
+)
+SELECT 
+    G.Genre,
+    A.AgeGroup,
+    COALESCE(AB.Quantity, 0) AS Quantity
+FROM 
+    Genres G
+    CROSS JOIN AgeGroups A
+    LEFT JOIN ActualBorrowings AB 
+        ON G.Genre = AB.Genre AND A.AgeGroup = AB.AgeGroup
+ORDER BY 
+    G.Genre, A.AgeGroup;
+
+-- Drop indexes
+DROP INDEX idx_book_genre;
+DROP INDEX idx_loandetail_bookid_loanid;
+DROP INDEX idx_loan_loanid_memberid;
+DROP INDEX idx_member_dob;
+
+-- Create indexes
+CREATE INDEX idx_book_genre ON Book (Genre);
+CREATE INDEX idx_loandetail_bookid_loanid ON LoanDetail (BookID, LoanID);
+CREATE INDEX idx_loan_loanid_memberid ON Loan (LoanID, MemberID);
+CREATE INDEX idx_member_dob ON Member (DOB);
+
+TTITLE CENTER '<=== Genre of Books Categorized by Age Group ===>' SKIP 2
+REPFOOTER CENTER '<--- END OF REPORT --->'
+
+BREAK ON Genre SKIP 1
+
+COLUMN Genre FORMAT A20 HEADING 'Book Genre'
+COLUMN AgeGroup FORMAT A20 HEADING 'Age Group'
+COLUMN Quantity FORMAT 99999 HEADING 'Total Borrowers'
+
+SELECT * FROM View_BorrowedBooks_ByAgeGroup;
+
+CLEAR COLUMNS;
+CLEAR BREAKS;
+CLEAR COMPUTES;
+TTITLE OFF;
+REPFOOTER OFF;

@@ -1,0 +1,87 @@
+-- For Demo Purpose (Insert this 2 data)
+DELETE FROM ReservationDetail WHERE ReservationID = 'RES0000101';
+DELETE FROM Reservation WHERE ReservationID = 'RES0000101';
+INSERT INTO Reservation VALUES ('RES0000101', '2025-04-15', 'PENDING', NULL, NULL, 'MEM0000001');
+INSERT INTO ReservationDetail VALUES ('RES0000101', 'BOK0000020', '2025-04-17', 'NOT AVAILABLE');
+
+SET SERVEROUTPUT ON
+SET linesize 120
+SET pagesize 100
+
+CREATE OR REPLACE PROCEDURE CancelPendingReservation (
+    v_ReservationID   VARCHAR,
+    v_MemberID        VARCHAR,
+    v_CancelReason    VARCHAR DEFAULT 'No reason provided'
+)
+AS
+    v_ReservationStatus   VARCHAR(50);
+    v_BookID              CHAR(10);
+    v_Title               VARCHAR(255);
+    v_CancellationDate    DATE := SYSDATE;
+    
+    reservation_not_found EXCEPTION;
+    reservation_invalid_status EXCEPTION;
+BEGIN
+    SAVEPOINT before_cancellation;
+
+    SELECT COUNT(*) INTO v_ReservationStatus
+    FROM Reservation
+    WHERE ReservationID = v_ReservationID AND MemberID = v_MemberID;
+
+    IF v_ReservationStatus = 0 THEN
+        RAISE reservation_not_found;
+    END IF;
+
+    SELECT ReservationStatus INTO v_ReservationStatus
+    FROM Reservation
+    WHERE ReservationID = v_ReservationID AND MemberID = v_MemberID;
+
+    IF UPPER(v_ReservationStatus) != 'PENDING' THEN
+        RAISE reservation_invalid_status;
+    END IF;
+
+    SELECT RD.BookID, B.Title INTO v_BookID, v_Title
+    FROM ReservationDetail RD
+    JOIN Book B ON RD.BookID = B.BookID
+    WHERE RD.ReservationID = v_ReservationID
+    AND ROWNUM = 1;
+
+    UPDATE Reservation
+    SET ReservationStatus = 'CANCELLED',
+        PickupDate = NULL
+    WHERE ReservationID = v_ReservationID;
+
+    UPDATE ReservationDetail
+    SET AvailableDate = NULL
+    WHERE ReservationID = v_ReservationID;
+
+    -- Simulate a log output
+    DBMS_OUTPUT.PUT_LINE('--- Cancellation Log ---');
+    DBMS_OUTPUT.PUT_LINE('Reservation ID : ' || v_ReservationID);
+    DBMS_OUTPUT.PUT_LINE('Member ID      : ' || v_MemberID);
+    DBMS_OUTPUT.PUT_LINE('Cancelled On   : ' || v_CancellationDate);
+    DBMS_OUTPUT.PUT_LINE('Reason         : ' || v_CancelReason);
+    DBMS_OUTPUT.PUT_LINE('Book Title     : ' || v_Title || ' (Book ID: ' || v_BookID || ')');
+    DBMS_OUTPUT.PUT_LINE('Status         : CANCELLED');
+
+    COMMIT;
+EXCEPTION
+    WHEN reservation_not_found THEN
+        ROLLBACK TO before_cancellation;
+        DBMS_OUTPUT.PUT_LINE('Error: Reservation not found for ID ' || v_ReservationID || ' and Member ID ' || v_MemberID);
+
+    WHEN reservation_invalid_status THEN
+        ROLLBACK TO before_cancellation;
+        DBMS_OUTPUT.PUT_LINE('Error: Reservation ' || v_ReservationID || ' is not in PENDING status.');
+
+    WHEN OTHERS THEN
+        ROLLBACK TO before_cancellation;
+        DBMS_OUTPUT.PUT_LINE('Unexpected Error: ' || SQLERRM);
+END;
+/
+
+EXEC CancelPendingReservation('RES0000001', 'MEM0000001');
+EXEC CancelPendingReservation('RES0000098', 'MEM0000041');
+EXEC CancelPendingReservation('RES0000101', 'MEM0000001', 'No Time');
+
+
