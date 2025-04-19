@@ -170,6 +170,9 @@ CREATE INDEX idx_fine_invoice_id ON Fine(InvoiceID);
 DROP INDEX idx_invoice_id;
 CREATE INDEX idx_invoice_id ON Invoice(InvoiceID);
 
+DROP INDEX idx_loan_detail_fine_id;
+CREATE INDEX idx_loan_detail_fine_id ON LoanDetail(FineID);
+
 DROP SEQUENCE loan_seq;
 DROP SEQUENCE book_seq;
 DROP SEQUENCE member_seq;
