@@ -3,7 +3,7 @@ SET SERVEROUTPUT ON;
 CREATE OR REPLACE PROCEDURE prc_updateFineAmount (
     p_FineID        IN CHAR,
     p_NewAmount     IN NUMBER,
-    p_PaymentMethod IN VARCHAR2
+    p_PaymentMethod IN CHAR
 )
 IS
     v_OldAmount   Fine.FineAmount%TYPE;

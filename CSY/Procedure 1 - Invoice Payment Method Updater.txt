@@ -3,7 +3,7 @@ SET LINESIZE 150;
 
 CREATE OR REPLACE PROCEDURE prc_update_invoice_method (
     p_invoice_id   IN CHAR,
-    p_new_method   IN VARCHAR2
+    p_new_method   IN CHAR
 )
 IS
     v_old_method   Invoice.PaymentMethod%TYPE;

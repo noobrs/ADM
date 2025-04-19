@@ -86,5 +86,3 @@ END;
 /
 
 EXEC prc_fine_invoice_nested_all(TO_DATE('01-01-2023','DD-MM-YYYY'), TO_DATE('31-12-2025','DD-MM-YYYY'));
-
-DROP PROCEDURE PRC_FINE_INVOICE_ALL;

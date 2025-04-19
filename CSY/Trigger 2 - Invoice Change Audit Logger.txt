@@ -1,15 +1,13 @@
 SET SERVEROUTPUT ON;
 
-DROP TABLE InvoiceAuditLog;
-
 CREATE TABLE InvoiceAuditLog (
     InvoiceID     CHAR(15),
     MemberID      CHAR(15),
-    ActionType    VARCHAR2(10),
+    ActionType    CHAR(20),
     OldAmount     NUMBER(8,2),
     NewAmount     NUMBER(8,2),
-    OldMethod     VARCHAR2(20),
-    NewMethod     VARCHAR2(20),
+    OldMethod     CHAR(20),
+    NewMethod     CHAR(20),
     OldDate       DATE,
     NewDate       DATE,
     ChangeDate    DATE DEFAULT SYSDATE
@@ -77,3 +75,5 @@ DELETE FROM Invoice WHERE InvoiceID = 'INV999001';
 SELECT * FROM InvoiceAuditLog WHERE InvoiceID = 'INV999001';
 
 
+DROP TABLE InvoiceAuditLog;
+DROP TRIGGER TRG_INVOICE_CHANGE_AUDIT;

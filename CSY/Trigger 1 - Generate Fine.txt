@@ -108,3 +108,4 @@ SELECT * FROM Fine WHERE FineID = (
 -- Check book stock again (should be decreased by 1)
 SELECT TotalCopies, AvailableCopies FROM Book WHERE BookID = 'BOK0000012';
 
+DROP TRIGGER TRG_GENERATE_FINE;
