@@ -97,7 +97,8 @@ CREATE TABLE Loan (
     DueDate 		DATE 		NOT NULL,
     MemberID 		CHAR (10)	NOT NULL,
     PRIMARY KEY (LoanID),
-    FOREIGN KEY (MemberID) REFERENCES Member(MemberID)
+    FOREIGN KEY (MemberID) REFERENCES Member(MemberID),
+    CONSTRAINT chk_loan_due_date CHECK (ABS(DueDATE - LoanDATE) = 14)
 );
 
 -- Reservation Table

@@ -1,0 +1,35 @@
+SET LINESIZE 100;
+SET PAGESIZE 80;
+
+CREATE OR REPLACE VIEW vw_top_engaged_members AS
+SELECT EXTRACT(YEAR FROM l.LoanDate) AS LoanYear, m.MemberID, m.FirstName || ' ' || m.LastName AS FullName, COUNT(l.LoanID) AS TotalLoans
+FROM Loan l
+JOIN Member m ON l.MemberID = m.MemberID
+GROUP BY EXTRACT(YEAR FROM l.LoanDate), m.MemberID, m.FirstName, m.LastName
+HAVING COUNT(l.LoanID) = (
+    SELECT MAX(COUNT(l2.LoanID))
+    FROM Loan l2
+    WHERE EXTRACT(YEAR FROM l2.LoanDate) = EXTRACT(YEAR FROM l.LoanDate)
+    GROUP BY l2.MemberID
+)
+ORDER BY LoanYear DESC;
+
+TTITLE LEFT '<<-TOP ENGAGED MEMBER(S) PER YEAR-->>' RIGHT 'PAGE:' FORMAT 999 SQL.PNO SKIP 2
+REPFOOTER LEFT '<<-- END OF REPORT -->>'
+
+COLUMN LoanYear FORMAT A15 HEADING 'Year'
+COLUMN MemberID FORMAT A15 HEADING 'Member ID'
+COLUMN FullName FORMAT A40 HEADING 'Full Name'
+COLUMN TotalLoans FORMAT 99999999999999 HEADING 'Total Loans'
+
+BREAK ON LoanYear SKIP 2 ON MemberID ON FullName ON TotalLoans
+COMPUTE COUNT LABEL 'No. of Members: ' OF MemberID ON LoanYear
+
+SELECT TO_CHAR(LoanYear) AS LoanYear, MemberID, FullName, TotalLoans 
+FROM vw_top_engaged_members;
+
+CLEAR COLUMNS;
+CLEAR BREAKS;
+CLEAR COMPUTES;
+TTITLE OFF;
+REPFOOTER OFF;

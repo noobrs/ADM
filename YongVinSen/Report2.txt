@@ -1,0 +1,87 @@
+SET SERVEROUTPUT ON;
+SET LINESIZE 120
+SET PAGESIZE 120
+
+CREATE OR REPLACE PROCEDURE prc_member_loan_summary (p_start_date IN DATE, p_end_date IN DATE) IS
+
+    CURSOR member_cur IS
+        SELECT MemberID, FirstName, LastName
+        FROM Member
+        ORDER BY MemberID;
+
+    CURSOR loan_count_cur(p_member_id Member.MemberID%TYPE) IS
+        SELECT COUNT(*) AS total_loans
+        FROM Loan
+        WHERE MemberID = p_member_id
+        AND LoanDate BETWEEN p_start_date AND p_end_date;
+
+    CURSOR book_count_cur(p_member_id Member.MemberID%TYPE) IS
+        SELECT COUNT(*) AS total_books
+        FROM LoanDetail ld
+        JOIN Loan l ON l.LoanID = ld.LoanID
+        WHERE l.MemberID = p_member_id
+        AND l.LoanDate BETWEEN p_start_date AND p_end_date;
+
+    member_rec member_cur%ROWTYPE;
+    v_total_loans NUMBER;
+    v_total_books NUMBER;
+	v_grand_total_loans NUMBER := 0;
+    v_grand_total_books NUMBER := 0;
+    v_grand_total_members NUMBER := 0;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 90, '='));
+    DBMS_OUTPUT.PUT_LINE(LPAD('MEMBER LOAN SUMMARY REPORT', 55));
+    DBMS_OUTPUT.PUT_LINE('Period: ' || TO_CHAR(p_start_date, 'DD-MON-YYYY') || 
+                         ' to ' || TO_CHAR(p_end_date, 'DD-MON-YYYY'));
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 90, '='));
+
+    DBMS_OUTPUT.PUT_LINE(RPAD('Member ID', 15) || RPAD('Name', 30) || 
+                         RPAD('Total Loans', 15) || 'Total Books');
+    DBMS_OUTPUT.PUT_LINE(RPAD('-', 90, '-'));
+
+    OPEN member_cur;
+    LOOP
+        FETCH member_cur INTO member_rec;
+        EXIT WHEN member_cur%NOTFOUND;
+
+        OPEN loan_count_cur(member_rec.MemberID);
+        FETCH loan_count_cur INTO v_total_loans;
+        CLOSE loan_count_cur;
+	
+		IF v_total_loans = 0 THEN
+            CONTINUE;
+        END IF;
+	
+        OPEN book_count_cur(member_rec.MemberID);
+        FETCH book_count_cur INTO v_total_books;
+        CLOSE book_count_cur;
+
+        DBMS_OUTPUT.PUT_LINE(
+            RPAD(member_rec.MemberID, 15) ||
+            RPAD(member_rec.FirstName || ' ' || member_rec.LastName, 30) ||
+            RPAD(v_total_loans, 15) ||
+            v_total_books
+        );
+		
+		v_grand_total_members := v_grand_total_members + 1;
+        v_grand_total_loans := v_grand_total_loans + v_total_loans;
+        v_grand_total_books := v_grand_total_books + v_total_books;
+    END LOOP;
+    CLOSE member_cur;
+
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 90, '='));
+    DBMS_OUTPUT.PUT_LINE(LPAD('SUMMARY TOTALS', 55));
+    DBMS_OUTPUT.PUT_LINE(RPAD('-', 90, '-'));
+    DBMS_OUTPUT.PUT_LINE('Total Members with Loans : ' || v_grand_total_members);
+    DBMS_OUTPUT.PUT_LINE('Total Loans Issued       : ' || v_grand_total_loans);
+    DBMS_OUTPUT.PUT_LINE('Total Books Loaned       : ' || v_grand_total_books);
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 90, '='));
+    DBMS_OUTPUT.PUT_LINE(LPAD('END OF REPORT', 55));
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 90, '='));
+END;
+/
+
+
+
+ALTER SESSION SET NLS_DATE_FORMAT='YYYY-MM-DD';
+EXEC prc_member_loan_summary('2024-1-1', '2025-1-1');
