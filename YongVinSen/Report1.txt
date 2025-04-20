@@ -13,7 +13,7 @@ CREATE OR REPLACE PROCEDURE prc_member_loan_detail(p_member_id IN CHAR) IS
 
     CURSOR loan_detail_cur IS
         SELECT ld.BookID, b.Title, ld.Status,
-		       NVL(TO_CHAR(ReturnDate, 'DD-MON-YYYY'), 'N/A') AS ReturnDateStr,
+               NVL(TO_CHAR(ReturnDate, 'DD-MON-YYYY'), 'N/A') AS ReturnDateStr,
                NVL(ld.ExtendedDueDate, l.DueDate) AS CurrentDueDate
         FROM LoanDetail ld
         JOIN Book b ON b.BookID = ld.BookID
@@ -22,8 +22,8 @@ CREATE OR REPLACE PROCEDURE prc_member_loan_detail(p_member_id IN CHAR) IS
 
     loan_rec loan_cur%ROWTYPE;
     detail_rec loan_detail_cur%ROWTYPE;
-	v_total_loan 	NUMBER(3);
-	v_total_book 	NUMBER(1);
+    v_total_loan     NUMBER(3);
+    v_total_book     NUMBER(1);
 
 BEGIN
     DBMS_OUTPUT.PUT_LINE(RPAD('=', 115, '='));
@@ -34,7 +34,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE(RPAD('=', 115, '='));
 
     OPEN loan_cur;
-	v_total_loan := 0;
+    v_total_loan := 0;
     LOOP
         FETCH loan_cur INTO loan_rec;
         EXIT WHEN loan_cur%NOTFOUND;
@@ -49,10 +49,10 @@ BEGIN
         DBMS_OUTPUT.PUT_LINE(RPAD('-', 115, '-'));
 
         OPEN loan_detail_cur;
-		v_total_book := 0;
-		
+        v_total_book := 0;
+        
         LOOP
-			
+            
             FETCH loan_detail_cur INTO detail_rec;
             EXIT WHEN loan_detail_cur%NOTFOUND;
 
@@ -60,25 +60,24 @@ BEGIN
                 RPAD(detail_rec.BookID, 15) ||
                 RPAD(detail_rec.Title, 50) ||
                 RPAD(detail_rec.Status, 15) ||
-				RPAD(detail_rec.ReturnDateStr, 15) ||
+                RPAD(detail_rec.ReturnDateStr, 15) ||
                 TO_CHAR(detail_rec.CurrentDueDate, 'DD-MON-YYYY')
             );
-			
-			v_total_book:= v_total_book + 1;
+            
+            v_total_book:= v_total_book + 1;
         END LOOP;
         CLOSE loan_detail_cur;
 
         DBMS_OUTPUT.PUT_LINE(RPAD('-', 115, '-'));
-		DBMS_OUTPUT.PUT_LINE('Total of Books: ' || v_total_book);
+        DBMS_OUTPUT.PUT_LINE('Total of Books: ' || v_total_book);
         DBMS_OUTPUT.PUT_LINE(CHR(10));
-		v_total_loan := v_total_loan + 1;
+        v_total_loan := v_total_loan + 1;
     END LOOP;
     CLOSE loan_cur;
 
     DBMS_OUTPUT.PUT_LINE(RPAD('=', 115, '='));
-	DBMS_OUTPUT.PUT_LINE('Total of Loans: ' || v_total_loan);
+    DBMS_OUTPUT.PUT_LINE('Total of Loans: ' || v_total_loan);
 END;
 /
-
 
 EXEC prc_member_loan_detail('MEM0000011');

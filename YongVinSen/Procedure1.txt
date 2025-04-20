@@ -3,22 +3,22 @@ SET SERVEROUTPUT ON;
 CREATE OR REPLACE PROCEDURE prc_loan_books (p_member_id IN CHAR, p_book_list IN VARCHAR) IS
     v_new_loan_id   Loan.LoanID%TYPE;
     v_loan_date     DATE := SYSDATE;
-	v_due_date 		DATE;
+    v_due_date         DATE;
     v_book_id       Book.BookID%TYPE;
     v_pos           NUMBER := 1;
     v_next_pos      NUMBER;
     v_book_str      VARCHAR(100);
     v_book_copies   Book.AvailableCopies%TYPE;
-	v_mem_exp 	    DATE;
+    v_mem_exp         DATE;
    
 BEGIN
-	SELECT EndDate INTO v_mem_exp
-	FROM Member
-	WHERE MemberID = p_member_id;
-	
-	IF v_mem_exp < SYSDATE THEN
-		RAISE_APPLICATION_ERROR(-20000, 'Member: ' || p_member_id || ' has expired.');
-	END IF;
+    SELECT EndDate INTO v_mem_exp
+    FROM Member
+    WHERE MemberID = p_member_id;
+    
+    IF v_mem_exp < SYSDATE THEN
+        RAISE_APPLICATION_ERROR(-20000, 'Member: ' || p_member_id || ' has expired.');
+    END IF;
 
     DECLARE
         v_temp_str VARCHAR(100) := p_book_list || ',';
@@ -40,7 +40,7 @@ BEGIN
 
     v_new_loan_id := 'LOA' || TO_CHAR(loan_seq.NEXTVAL, 'FM0000000');
 
-	v_due_date := v_loan_date + 14;
+    v_due_date := v_loan_date + 14;
 
     INSERT INTO Loan (LoanID, LoanDate, DueDate, MemberID)
     VALUES (v_new_loan_id, v_loan_date, v_due_date, p_member_id);
@@ -61,13 +61,13 @@ BEGIN
          ROLLBACK;
          RAISE_APPLICATION_ERROR(-20000, 'Book: ' || v_book_id || ' do not have available copies');
       END IF;
-	        
+            
       INSERT INTO LoanDetail (LoanID, BookID, Status)
       VALUES (v_new_loan_id, v_book_id, 'BORROWED');
-	  
-	  UPDATE Book
-	  SET AvailableCopies = AvailableCopies - 1
-	  WHERE BookID = v_book_id;
+      
+      UPDATE Book
+      SET AvailableCopies = AvailableCopies - 1
+      WHERE BookID = v_book_id;
       
         EXIT WHEN v_next_pos = 0;
         v_pos := v_next_pos + 1;

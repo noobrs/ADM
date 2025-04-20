@@ -25,7 +25,7 @@ CREATE OR REPLACE PROCEDURE prc_member_loan_summary (p_start_date IN DATE, p_end
     member_rec member_cur%ROWTYPE;
     v_total_loans NUMBER;
     v_total_books NUMBER;
-	v_grand_total_loans NUMBER := 0;
+    v_grand_total_loans NUMBER := 0;
     v_grand_total_books NUMBER := 0;
     v_grand_total_members NUMBER := 0;
 BEGIN
@@ -47,11 +47,11 @@ BEGIN
         OPEN loan_count_cur(member_rec.MemberID);
         FETCH loan_count_cur INTO v_total_loans;
         CLOSE loan_count_cur;
-	
-		IF v_total_loans = 0 THEN
+    
+        IF v_total_loans = 0 THEN
             CONTINUE;
         END IF;
-	
+    
         OPEN book_count_cur(member_rec.MemberID);
         FETCH book_count_cur INTO v_total_books;
         CLOSE book_count_cur;
@@ -62,8 +62,8 @@ BEGIN
             RPAD(v_total_loans, 15) ||
             v_total_books
         );
-		
-		v_grand_total_members := v_grand_total_members + 1;
+        
+        v_grand_total_members := v_grand_total_members + 1;
         v_grand_total_loans := v_grand_total_loans + v_total_loans;
         v_grand_total_books := v_grand_total_books + v_total_books;
     END LOOP;
@@ -80,8 +80,6 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE(RPAD('=', 90, '='));
 END;
 /
-
-
 
 ALTER SESSION SET NLS_DATE_FORMAT='YYYY-MM-DD';
 EXEC prc_member_loan_summary('2024-1-1', '2025-1-1');

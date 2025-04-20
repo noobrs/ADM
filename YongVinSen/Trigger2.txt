@@ -3,9 +3,9 @@ DROP TABLE LoanDetailAudit;
 CREATE TABLE LoanDetailAudit (
     BookID         CHAR(10),
     LoanID         CHAR(10),
-	ActionDate     TIMESTAMP,
+    ActionDate     TIMESTAMP,
     ActionType     VARCHAR(10),
-	ActionDesc 	   VARCHAR(200),
+    ActionDesc        VARCHAR(200),
     PerformedBy    VARCHAR(100)
 );
 
@@ -14,89 +14,89 @@ CREATE OR REPLACE TRIGGER trg_borrowed_count
 AFTER INSERT OR UPDATE OR DELETE ON LoanDetail
 FOR EACH ROW
 DECLARE
-	v_actionStr 	VARCHAR(200);
+    v_actionStr     VARCHAR(200);
 BEGIN
-	IF INSERTING THEN
-		UPDATE Book
-		SET BorrowedCount = NVL(BorrowedCount, 0) + 1
-		WHERE BookID = :NEW.BookID;
-		
-		v_actionStr := 'Return Date: ' || :NEW.ReturnDate || 
-		' | Extension Count: ' || :NEW.ExtensionCount || 
-		' | Extended Due Date: ' || :NEW.ExtendedDueDate || 
-		' | Status: ' || :NEW.Status;
+    IF INSERTING THEN
+        UPDATE Book
+        SET BorrowedCount = NVL(BorrowedCount, 0) + 1
+        WHERE BookID = :NEW.BookID;
+        
+        v_actionStr := 'Return Date: ' || :NEW.ReturnDate || 
+        ' | Extension Count: ' || :NEW.ExtensionCount || 
+        ' | Extended Due Date: ' || :NEW.ExtendedDueDate || 
+        ' | Status: ' || :NEW.Status;
 
-		INSERT INTO LoanDetailAudit (BookID, LoanID, ActionDate, ActionType, ActionDesc, PerformedBy)
-		VALUES (:NEW.BookID, :NEW.LoanID, SYSTIMESTAMP, 'INSERT', v_actionStr, USER);
-		
-		ELSIF UPDATING THEN
-			v_actionStr := '';
+        INSERT INTO LoanDetailAudit (BookID, LoanID, ActionDate, ActionType, ActionDesc, PerformedBy)
+        VALUES (:NEW.BookID, :NEW.LoanID, SYSTIMESTAMP, 'INSERT', v_actionStr, USER);
+        
+        ELSIF UPDATING THEN
+            v_actionStr := '';
 
-			IF :OLD.BookID != :NEW.BookID THEN
-				v_actionStr := v_actionStr || 'Book ID: ' || :OLD.BookID || ' -> ' || :NEW.BookID || ' | ';
+            IF :OLD.BookID != :NEW.BookID THEN
+                v_actionStr := v_actionStr || 'Book ID: ' || :OLD.BookID || ' -> ' || :NEW.BookID || ' | ';
 
-				UPDATE Book
-				SET BorrowedCount = NVL(BorrowedCount, 0) - 1,
-					AvailableCopies = AvailableCopies + 1
-				WHERE BookID = :OLD.BookID;
+                UPDATE Book
+                SET BorrowedCount = NVL(BorrowedCount, 0) - 1,
+                    AvailableCopies = AvailableCopies + 1
+                WHERE BookID = :OLD.BookID;
 
-				UPDATE Book
-				SET BorrowedCount = NVL(BorrowedCount, 0) + 1,
-					AvailableCopies = AvailableCopies - 1
-				WHERE BookID = :NEW.BookID;
-			END IF;
+                UPDATE Book
+                SET BorrowedCount = NVL(BorrowedCount, 0) + 1,
+                    AvailableCopies = AvailableCopies - 1
+                WHERE BookID = :NEW.BookID;
+            END IF;
 
-			IF :OLD.LoanID != :NEW.LoanID THEN
-				v_actionStr := v_actionStr || 'Loan ID: ' || :OLD.LoanID || ' -> ' || :NEW.LoanID || ' | ';
-			END IF;
-			
-			IF (:OLD.ReturnDate IS NULL AND :NEW.ReturnDate IS NOT NULL) OR
-			   :OLD.ReturnDate != :NEW.ReturnDate THEN
-				v_actionStr := v_actionStr || 'Return Date: ' || 
-							   NVL(TO_CHAR(:OLD.ReturnDate, 'YYYY-MM-DD'), 'NULL') ||
-							   ' -> ' || NVL(TO_CHAR(:NEW.ReturnDate, 'YYYY-MM-DD'), 'NULL') || ' | ';
-			END IF;
+            IF :OLD.LoanID != :NEW.LoanID THEN
+                v_actionStr := v_actionStr || 'Loan ID: ' || :OLD.LoanID || ' -> ' || :NEW.LoanID || ' | ';
+            END IF;
+            
+            IF (:OLD.ReturnDate IS NULL AND :NEW.ReturnDate IS NOT NULL) OR
+               :OLD.ReturnDate != :NEW.ReturnDate THEN
+                v_actionStr := v_actionStr || 'Return Date: ' || 
+                               NVL(TO_CHAR(:OLD.ReturnDate, 'YYYY-MM-DD'), 'NULL') ||
+                               ' -> ' || NVL(TO_CHAR(:NEW.ReturnDate, 'YYYY-MM-DD'), 'NULL') || ' | ';
+            END IF;
 
-			IF :OLD.ExtensionCount != :NEW.ExtensionCount THEN
-				v_actionStr := v_actionStr || 'Extension Count: ' || :OLD.ExtensionCount || ' -> ' || :NEW.ExtensionCount || ' | ';
-			END IF;
-			
-			IF (:OLD.ExtendedDueDate IS NULL AND :NEW.ExtendedDueDate IS NOT NULL) OR
-			   :OLD.ExtendedDueDate != :NEW.ExtendedDueDate THEN
-				v_actionStr := v_actionStr || 'Extended Due Date: ' || 
-							   NVL(TO_CHAR(:OLD.ExtendedDueDate, 'YYYY-MM-DD'), 'NULL') ||
-							   ' -> ' || NVL(TO_CHAR(:NEW.ExtendedDueDate, 'YYYY-MM-DD'), 'NULL') || ' | ';
-			END IF;
+            IF :OLD.ExtensionCount != :NEW.ExtensionCount THEN
+                v_actionStr := v_actionStr || 'Extension Count: ' || :OLD.ExtensionCount || ' -> ' || :NEW.ExtensionCount || ' | ';
+            END IF;
+            
+            IF (:OLD.ExtendedDueDate IS NULL AND :NEW.ExtendedDueDate IS NOT NULL) OR
+               :OLD.ExtendedDueDate != :NEW.ExtendedDueDate THEN
+                v_actionStr := v_actionStr || 'Extended Due Date: ' || 
+                               NVL(TO_CHAR(:OLD.ExtendedDueDate, 'YYYY-MM-DD'), 'NULL') ||
+                               ' -> ' || NVL(TO_CHAR(:NEW.ExtendedDueDate, 'YYYY-MM-DD'), 'NULL') || ' | ';
+            END IF;
 
-			IF :OLD.Status != :NEW.Status THEN
-				v_actionStr := v_actionStr || 'Status: ' || :OLD.Status || ' -> ' || :NEW.Status || ' | ';
-			END IF;
-			
-			IF (:OLD.FineID IS NULL AND :NEW.FineID IS NOT NULL) OR
-			   :OLD.FineID != :NEW.FineID THEN
-				v_actionStr := v_actionStr || 'Fine ID: ' || 
-							   NVL(:OLD.FineID, 'NULL') ||
-							   ' -> ' || NVL(:NEW.FineID, 'NULL') || ' | ';
-			END IF;
+            IF :OLD.Status != :NEW.Status THEN
+                v_actionStr := v_actionStr || 'Status: ' || :OLD.Status || ' -> ' || :NEW.Status || ' | ';
+            END IF;
+            
+            IF (:OLD.FineID IS NULL AND :NEW.FineID IS NOT NULL) OR
+               :OLD.FineID != :NEW.FineID THEN
+                v_actionStr := v_actionStr || 'Fine ID: ' || 
+                               NVL(:OLD.FineID, 'NULL') ||
+                               ' -> ' || NVL(:NEW.FineID, 'NULL') || ' | ';
+            END IF;
 
-			INSERT INTO LoanDetailAudit (BookID, LoanID, ActionDate, ActionType, ActionDesc, PerformedBy)
-			VALUES (:NEW.BookID, :NEW.LoanID, SYSTIMESTAMP, 'UPDATE', v_actionStr, USER);
-		
-	ELSIF DELETING THEN
-	
-		UPDATE Book
-		SET BorrowedCount = NVL(BorrowedCount, 0) - 1,
-			AvailableCopies = AvailableCopies + 1
-		WHERE BookID = :OLD.BookID;
-		
-		v_actionStr := 'Return Date: ' || :OLD.ReturnDate || 
-		' | Extension Count: ' || :OLD.ExtensionCount || 
-		' | Extended Due Date: ' || :OLD.ExtendedDueDate || 
-		' | Status: ' || :OLD.Status;
+            INSERT INTO LoanDetailAudit (BookID, LoanID, ActionDate, ActionType, ActionDesc, PerformedBy)
+            VALUES (:NEW.BookID, :NEW.LoanID, SYSTIMESTAMP, 'UPDATE', v_actionStr, USER);
+        
+    ELSIF DELETING THEN
+    
+        UPDATE Book
+        SET BorrowedCount = NVL(BorrowedCount, 0) - 1,
+            AvailableCopies = AvailableCopies + 1
+        WHERE BookID = :OLD.BookID;
+        
+        v_actionStr := 'Return Date: ' || :OLD.ReturnDate || 
+        ' | Extension Count: ' || :OLD.ExtensionCount || 
+        ' | Extended Due Date: ' || :OLD.ExtendedDueDate || 
+        ' | Status: ' || :OLD.Status;
 
-		INSERT INTO LoanDetailAudit (BookID, LoanID, ActionDate, ActionType, ActionDesc, PerformedBy)
-		VALUES (:OLD.BookID, :OLD.LoanID, SYSTIMESTAMP, 'DELETE', v_actionStr, USER);
-	END IF;
+        INSERT INTO LoanDetailAudit (BookID, LoanID, ActionDate, ActionType, ActionDesc, PerformedBy)
+        VALUES (:OLD.BookID, :OLD.LoanID, SYSTIMESTAMP, 'DELETE', v_actionStr, USER);
+    END IF;
 END;
 /
 
