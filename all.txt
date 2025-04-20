@@ -159,20 +159,17 @@ CREATE INDEX loan_date_idx ON Loan (LoanDate);
 DROP INDEX loan_duedate_idx;
 CREATE INDEX loan_duedate_idx ON Loan (DueDate);
 
-DROP INDEX idx_memberid_member;
-CREATE INDEX idx_memberid_member ON Member(MemberID);
+DROP INDEX idx_member_email;
+CREATE INDEX idx_member_email ON Member(Email);
 
-DROP INDEX idx_memberid_resdetail;
-CREATE INDEX idx_memberid_resdetail ON ReservationDetail(MemberID);
+DROP INDEX idx_resdetail_book_status;
+CREATE INDEX idx_resdetail_book_status ON ReservationDetail (BookID, Status);
 
 DROP INDEX idx_fine_invoice_id;
 CREATE INDEX idx_fine_invoice_id ON Fine(InvoiceID);
 
-DROP INDEX idx_invoice_id;
-CREATE INDEX idx_invoice_id ON Invoice(InvoiceID);
-
-DROP INDEX idx_loan_detail_fine_id;
-CREATE INDEX idx_loan_detail_fine_id ON LoanDetail(FineID);
+DROP INDEX idx_fine_status_date;
+CREATE INDEX idx_fine_status_date ON Fine(FineStatus, IssueDate);
 
 DROP SEQUENCE loan_seq;
 DROP SEQUENCE book_seq;
