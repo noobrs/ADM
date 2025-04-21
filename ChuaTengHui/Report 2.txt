@@ -1,0 +1,196 @@
+SET SERVEROUTPUT ON;
+SET LINESIZE 200;
+SET PAGESIZE 80;
+
+CREATE OR REPLACE PROCEDURE prc_member_activity_breakdown (
+  p_start_date IN DATE DEFAULT NULL,
+  p_end_date   IN DATE DEFAULT NULL
+) IS
+
+  CURSOR grp_cur IS
+    SELECT
+      m.Gender,
+      CASE
+        WHEN FLOOR(MONTHS_BETWEEN(SYSDATE, m.DOB)/12) BETWEEN 18 AND 24 THEN '18–24'
+        WHEN FLOOR(MONTHS_BETWEEN(SYSDATE, m.DOB)/12) BETWEEN 25 AND 30 THEN '25–30'
+        WHEN FLOOR(MONTHS_BETWEEN(SYSDATE, m.DOB)/12) BETWEEN 31 AND 40 THEN '31–40'
+        WHEN FLOOR(MONTHS_BETWEEN(SYSDATE, m.DOB)/12) BETWEEN 41 AND 60 THEN '41–60'
+        ELSE '61+'
+      END AS Age_Group
+    FROM Member m
+    GROUP BY
+      m.Gender,
+      CASE
+        WHEN FLOOR(MONTHS_BETWEEN(SYSDATE, m.DOB)/12) BETWEEN 18 AND 24 THEN '18–24'
+        WHEN FLOOR(MONTHS_BETWEEN(SYSDATE, m.DOB)/12) BETWEEN 25 AND 30 THEN '25–30'
+        WHEN FLOOR(MONTHS_BETWEEN(SYSDATE, m.DOB)/12) BETWEEN 31 AND 40 THEN '31–40'
+        WHEN FLOOR(MONTHS_BETWEEN(SYSDATE, m.DOB)/12) BETWEEN 41 AND 60 THEN '41–60'
+        ELSE '61+'
+      END
+   ORDER BY m.Gender, Age_Group;
+
+  grp_rec  grp_cur%ROWTYPE;
+
+  CURSOR mem_cur (
+    p_gender    CHAR,
+    p_age_group VARCHAR
+  ) IS
+    SELECT
+      m.MemberID,
+      m.FirstName || ' ' || m.LastName AS FullName
+    FROM Member m
+    WHERE m.Gender = p_gender
+      AND CASE
+        WHEN FLOOR(MONTHS_BETWEEN(SYSDATE, m.DOB)/12) BETWEEN 18 AND 24 THEN '18–24'
+        WHEN FLOOR(MONTHS_BETWEEN(SYSDATE, m.DOB)/12) BETWEEN 25 AND 30 THEN '25–30'
+        WHEN FLOOR(MONTHS_BETWEEN(SYSDATE, m.DOB)/12) BETWEEN 31 AND 40 THEN '31–40'
+        WHEN FLOOR(MONTHS_BETWEEN(SYSDATE, m.DOB)/12) BETWEEN 41 AND 60 THEN '41–60'
+            ELSE '61+'
+          END = p_age_group
+    ORDER BY m.MemberID;
+
+  mem_rec mem_cur%ROWTYPE;
+
+  -- per‐member metrics
+  v_bookings        NUMBER;
+  v_renewals        NUMBER;
+  v_loans           NUMBER;
+  v_fines           NUMBER;
+  v_finesamount     NUMBER;  
+  v_renewalamount   NUMBER;
+
+  g_members         NUMBER;
+  g_bookings        NUMBER;
+  g_renewals        NUMBER;
+  g_loans           NUMBER;
+  g_fines           NUMBER;
+  g_finesamount     NUMBER;
+  g_renewalamount   NUMBER;
+
+BEGIN
+  -- Report Title
+  DBMS_OUTPUT.PUT_LINE(RPAD('=',140,'='));
+  DBMS_OUTPUT.PUT_LINE(' MEMBER ACTIVITY BREAKDOWN BY GENDER and AGE GROUP ');
+  DBMS_OUTPUT.PUT_LINE(RPAD('=',140,'='));
+
+  IF p_start_date IS NOT NULL AND p_end_date IS NOT NULL THEN
+    DBMS_OUTPUT.PUT_LINE('Filtered by Date Range: ' || TO_CHAR(p_start_date, 'DD-MON-YYYY') || ' to ' || TO_CHAR(p_end_date, 'DD-MON-YYYY'));
+  DBMS_OUTPUT.PUT_LINE(RPAD('=',140,'='));  
+END IF;
+
+  OPEN grp_cur;
+  LOOP
+    FETCH grp_cur INTO grp_rec;
+    EXIT WHEN grp_cur%NOTFOUND;
+
+    -- Initialize group totals
+    g_members        := 0;
+    g_bookings       := 0;
+    g_renewals       := 0;
+    g_loans          := 0;
+    g_fines          := 0;
+    g_finesamount    := 0;
+    g_renewalamount  := 0;
+
+    -- Group Header
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || '>> Gender: ' || grp_rec.Gender || '    Age Group: ' || grp_rec.Age_Group);
+    DBMS_OUTPUT.PUT_LINE(RPAD('-',140,'-'));
+    DBMS_OUTPUT.PUT_LINE(
+      RPAD('Member ID',10,' ') || ' ' ||
+      RPAD('Name',30,' ')     || ' ' ||
+      RPAD('Total Bookings',15,' ')  || ' ' ||
+      RPAD('Total Renewals',15,' ')  || ' ' ||
+      RPAD('Total Loans',12,' ')     || ' ' ||
+      RPAD('Total Fines',12,' ') || ' ' ||
+      RPAD('Fines Amount (RM)',18,' ') || ' ' ||
+      RPAD('Renewal Amount (RM)',20,' ') 
+    );
+    DBMS_OUTPUT.PUT_LINE(RPAD('=',140,'='));
+
+    OPEN mem_cur(grp_rec.Gender, grp_rec.Age_Group);
+    LOOP
+      FETCH mem_cur INTO mem_rec;
+      EXIT WHEN mem_cur%NOTFOUND;
+
+      -- compute each metric
+      SELECT COUNT(*) INTO v_bookings
+        FROM Booking
+       WHERE MemberID = mem_rec.MemberID
+        AND (p_start_date IS NULL OR BookingDate BETWEEN p_start_date AND p_end_date);
+
+      SELECT COUNT(*) INTO v_renewals
+        FROM MemberRenewal
+       WHERE MemberID = mem_rec.MemberID
+        AND (p_start_date IS NULL OR RenewalDate BETWEEN p_start_date AND p_end_date);
+
+      SELECT COUNT(*) INTO v_loans
+        FROM Loan
+       WHERE MemberID = mem_rec.MemberID
+        AND (p_start_date IS NULL OR LoanDate BETWEEN p_start_date AND p_end_date);
+
+      SELECT COUNT(*) INTO v_fines
+        FROM Fine f, Invoice i
+       WHERE f.InvoiceID = i.InvoiceID
+         AND i.MemberID   = mem_rec.MemberID
+         AND (p_start_date IS NULL OR f.IssueDate BETWEEN p_start_date AND p_end_date);
+
+      SELECT NVL(SUM(f.FineAmount),0) INTO v_finesamount
+        FROM Fine f, Invoice i
+       WHERE f.InvoiceID = i.InvoiceID
+         AND i.MemberID   = mem_rec.MemberID
+         AND (p_start_date IS NULL OR f.IssueDate BETWEEN p_start_date AND p_end_date);
+
+      SELECT NVL(SUM(r.RenewalFee),0)
+        INTO v_renewalamount
+        FROM MemberRenewal r
+       WHERE r.MemberID = mem_rec.MemberID
+         AND (p_start_date IS NULL OR r.RenewalDate BETWEEN p_start_date AND p_end_date);
+
+      -- accumulate group totals
+      g_members       := g_members + 1;
+      g_bookings      := g_bookings + v_bookings;
+      g_renewals      := g_renewals + v_renewals;
+      g_loans         := g_loans    + v_loans;
+      g_fines         := g_fines    + v_fines;
+      g_finesamount   := g_finesamount + v_finesamount;
+      g_renewalamount := g_renewalamount + v_renewalamount;
+
+      DBMS_OUTPUT.PUT_LINE(
+        RPAD(mem_rec.MemberID, 10,' ') || ' ' ||
+        RPAD(mem_rec.FullName, 30,' ')   || ' ' ||
+        RPAD(v_bookings, 15,' ')          || ' ' ||
+        RPAD(v_renewals, 15,' ')          || ' ' ||
+        RPAD(v_loans, 12,' ')             || ' ' ||
+        RPAD(v_fines, 12,' ')             || ' ' ||
+        RPAD(TO_CHAR(v_finesamount,'99990.00'), 18,' ') || ' ' ||
+        RPAD(TO_CHAR(v_renewalamount,'99990.00'),20,' ')
+      );
+    END LOOP;
+    CLOSE mem_cur;
+
+    DBMS_OUTPUT.PUT_LINE(RPAD('-',140,'-'));
+    DBMS_OUTPUT.PUT_LINE(
+      RPAD('Subtotal for '||grp_rec.Gender||' '||grp_rec.Age_Group, 41,' ') || ' ' ||
+      RPAD(g_bookings,15,' ')     || ' ' ||
+      RPAD(g_renewals,15,' ')     || ' ' ||
+      RPAD(g_loans,12,' ')        || ' ' ||
+      RPAD(g_fines,12,' ')        || ' ' ||
+      RPAD(TO_CHAR(g_finesamount,'99990.00'),18,' ')|| ' ' ||
+      RPAD(TO_CHAR(g_renewalamount,'99990.00'),20,' ')
+    );
+
+    DBMS_OUTPUT.PUT_LINE('Total Members in this group: ' || g_members);
+    DBMS_OUTPUT.PUT_LINE(RPAD('=',140,'='));
+  END LOOP;
+  CLOSE grp_cur;
+
+  DBMS_OUTPUT.PUT_LINE(RPAD('=',140,'='));
+  DBMS_OUTPUT.PUT_LINE('End Of Report');
+  DBMS_OUTPUT.PUT_LINE(RPAD('=',140,'='));
+END;
+/
+
+
+EXEC prc_member_activity_breakdown;
+EXEC prc_member_activity_breakdown(p_start_date => TO_DATE('2024-01-01','YYYY-MM-DD'), p_end_date => TO_DATE('2024-12-31','YYYY-MM-DD'));
+

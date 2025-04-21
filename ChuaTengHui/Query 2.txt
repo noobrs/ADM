@@ -1,0 +1,64 @@
+SET LINESIZE 100;
+SET PAGESIZE 80;
+
+CREATE OR REPLACE VIEW vw_AnnualFacilityUsage AS
+WITH CategorizedFacility AS (
+    SELECT
+        FacilityID,
+        Name AS FacilityName,
+        CASE
+            WHEN LOWER(Description) = 'quiet individual study room with charging station' THEN 'Self Study Room 1 - 4'
+            WHEN LOWER(Description) = 'soundproof single study room' THEN 'Self Study Room 5 - 8'
+            WHEN LOWER(Description) = 'collaborative space with wireless display' THEN 'Group Study Room 1 - 2'
+            WHEN LOWER(Description) = 'spacious room with whiteboard and shared table' THEN 'Group Study Room 3 to 6'
+            WHEN LOWER(Description) = 'equipped with hdmi screen and multiple chairs' THEN 'Group Study Room 7 to 8'
+            WHEN LOWER(Description) = 'room for formal group discussions and seminars' THEN 'Discussion Room 1 to 2'
+            WHEN LOWER(Description) = 'furnished for group activities and training' THEN 'Discussion Room 3 to 4'
+            ELSE 'Other'
+        END AS FacilityCategory
+    FROM Facility
+)
+SELECT
+    EXTRACT(YEAR FROM b.BookingDate) AS Year,
+    cf.FacilityCategory,
+    cf.FacilityName,
+    COUNT(DISTINCT b.BookingID) AS TotalBookings
+FROM Booking b
+LEFT JOIN Member m ON b.MemberID = m.MemberID
+LEFT JOIN CategorizedFacility cf ON b.FacilityID = cf.FacilityID
+WHERE TRIM(UPPER(b.BookingStatus)) != 'CANCELLED'
+GROUP BY
+    EXTRACT(YEAR FROM b.BookingDate),
+    cf.FacilityCategory,
+    cf.FacilityName
+HAVING COUNT(b.BookingID) > 0;
+
+-- Drop indexes
+DROP INDEX idx_booking_memberid;
+DROP INDEX idx_facility_facilityid;
+
+-- Create indexes
+CREATE INDEX idx_booking_memberid ON Booking(MemberID);
+CREATE INDEX idx_facility_facilityid ON Facility(FacilityID);
+
+TTITLE LEFT '====================== Annual Facility Usage by Category and Name ====================== ' RIGHT 'PAGE: ' FORMAT 999 SQL.PNO SKIP 2
+REPFOOTER LEFT '<---------------------------------------- END OF REPORT ---------------------------------------- >'
+
+COLUMN Year FORMAT A24 HEADING 'Year'
+COLUMN FacilityCategory FORMAT A28 HEADING 'Category'
+COLUMN FacilityName FORMAT A20 HEADING 'Facility Name'
+COLUMN TotalBookings FORMAT 999 HEADING 'Total Bookings'
+
+BREAK ON Year SKIP 2 ON FacilityCategory SKIP 2 ON FacilityName ON TotalBookings
+COMPUTE SUM LABEL 'Total Bookings Per Category: ' OF TotalBookings ON FacilityCategory
+COMPUTE SUM LABEL 'Total Bookings Per Year: ' OF TotalBookings ON Year
+
+SELECT TO_CHAR(Year) AS Year, FacilityCategory, FacilityName, TotalBookings
+FROM vw_AnnualFacilityUsage
+ORDER BY Year, FacilityCategory, FacilityName;
+
+CLEAR COLUMNS;
+CLEAR BREAKS;
+CLEAR COMPUTES;
+TTITLE OFF;
+REPFOOTER OFF;

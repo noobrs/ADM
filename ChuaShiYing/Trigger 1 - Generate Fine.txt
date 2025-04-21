@@ -66,11 +66,9 @@ END;
 Test Case
 -- Make sure the Loan's DueDate is earlier than ReturnDate
 -- LATE RETURNED
-INSERT INTO Loan (LoanID, LoanDate, DueDate, MemberID)
-VALUES ('LOA0001001', SYSDATE - 10, SYSDATE - 5, 'MEM0000010');
+INSERT INTO Loan VALUES ('LOA0001001', '2025-02-01', '2025-02-15', 'MEM0000010');
 
-INSERT INTO LoanDetail (LoanID, BookID, ReturnDate, ExtensionCount, ExtendedDueDate, Status, FineID)
-VALUES ('LOA0001001', 'BOK0000010', SYSDATE, 0, NULL, 'LATE RETURNED', NULL);
+INSERT INTO LoanDetail VALUES ('LOA0001001', 'BOK0000010', '2025-02-20', 0, NULL, 'LATE RETURNED', NULL);
 
 -- Verify fine:
 SELECT * FROM Fine WHERE FineID = (
@@ -79,11 +77,9 @@ SELECT * FROM Fine WHERE FineID = (
 
 
 -- SCRATCH
-INSERT INTO Loan (LoanID, LoanDate, DueDate, MemberID)
-VALUES ('LOA0001002', SYSDATE - 7, SYSDATE - 2, 'MEM0000010');
+INSERT INTO Loan VALUES ('LOA0001002', '2025-02-01', '2025-02-15', 'MEM0000010');
 
-INSERT INTO LoanDetail (LoanID, BookID, ReturnDate, ExtensionCount, ExtendedDueDate, Status, FineID)
-VALUES ('LOA0001002', 'BOK0000011', SYSDATE, 0, NULL, 'SCRATCH', NULL);
+INSERT INTO LoanDetail VALUES ('LOA0001002', 'BOK0000011', '2025-02-16', 0, NULL, 'SCRATCH', NULL);
 
 -- Verify fine:
 SELECT * FROM Fine WHERE FineID = (
@@ -94,11 +90,9 @@ SELECT * FROM Fine WHERE FineID = (
 -- Check book stock before
 SELECT TotalCopies, AvailableCopies FROM Book WHERE BookID = 'BOK0000012';
 
-INSERT INTO Loan (LoanID, LoanDate, DueDate, MemberID)
-VALUES ('LOA0001003', SYSDATE - 5, SYSDATE - 1, 'MEM0000010');
+INSERT INTO Loan VALUES ('LOA0001003', '2025-02-01', '2025-02-15', 'MEM0000010');
 
-INSERT INTO LoanDetail (LoanID, BookID, ReturnDate, ExtensionCount, ExtendedDueDate, Status, FineID)
-VALUES ('LOA0001003', 'BOK0000012', SYSDATE, 0, NULL, 'LOSS', NULL);
+INSERT INTO LoanDetail VALUES ('LOA0001003', 'BOK0000012', '2025-02-16', 0, NULL, 'LOSS', NULL);
 
 -- Verify fine
 SELECT * FROM Fine WHERE FineID = (

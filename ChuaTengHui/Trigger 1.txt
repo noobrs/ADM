@@ -1,0 +1,60 @@
+SET LINESIZE 170
+SET PAGESIZE 100
+
+COLUMN BookingID      FORMAT A10 HEADING 'Booking ID'
+COLUMN MemberID       FORMAT A10 HEADING 'Member ID'
+COLUMN FacilityID     FORMAT A11 HEADING 'Facility ID'
+COLUMN StartTime      FORMAT A20 HEADING 'Start Time'
+COLUMN EndTime        FORMAT A20 HEADING 'End Time'
+COLUMN BookingDate    FORMAT A12 HEADING 'Booking Date'
+COLUMN BookingStatus  FORMAT A15 HEADING 'Booking Status'
+COLUMN ActionType     FORMAT A12 HEADING 'Action Type'
+COLUMN ActionDate     FORMAT A20 HEADING 'Action Date'
+COLUMN UserID         FORMAT A5 HEADING 'User'
+
+DROP TABLE BookingAudit;
+
+CREATE TABLE BookingAudit (
+  BookingID      CHAR(10),
+  MemberID       CHAR(10),
+  FacilityID     CHAR(10),
+  StartTime      TIMESTAMP,
+  EndTime        TIMESTAMP,
+  BookingDate    DATE,
+  BookingStatus  VARCHAR(15),
+  ActionType     VARCHAR(12),
+  ActionDate     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UserID         VARCHAR(5) DEFAULT USER
+);
+
+CREATE OR REPLACE TRIGGER trg_booking_audit
+AFTER INSERT OR UPDATE OR DELETE ON Booking
+FOR EACH ROW
+BEGIN
+  IF INSERTING THEN
+    INSERT INTO BookingAudit (BookingID, MemberID, FacilityID, StartTime, EndTime, BookingDate, BookingStatus, ActionType, ActionDate, UserID) 
+    VALUES (:NEW.BookingID, :NEW.MemberID, :NEW.FacilityID, :NEW.StartTime, :NEW.EndTime, :NEW.BookingDate, :NEW.BookingStatus, 'INSERT', CURRENT_TIMESTAMP, USER);
+
+  ELSIF UPDATING THEN
+
+    INSERT INTO BookingAudit (BookingID, MemberID, FacilityID, StartTime, EndTime, BookingDate, BookingStatus, ActionType, ActionDate, UserID) 
+    VALUES (:NEW.BookingID, :NEW.MemberID, :NEW.FacilityID, :NEW.StartTime, :NEW.EndTime, :NEW.BookingDate, :NEW.BookingStatus, 'UPDATE', CURRENT_TIMESTAMP, USER);
+
+  ELSIF DELETING THEN
+
+    INSERT INTO BookingAudit (BookingID, MemberID, FacilityID, StartTime, EndTime, BookingDate, BookingStatus, ActionType, ActionDate, UserID) 
+    VALUES (:OLD.BookingID, :OLD.MemberID, :OLD.FacilityID, :OLD.StartTime, :OLD.EndTime, :OLD.BookingDate, :OLD.BookingStatus, 'DELETE', CURRENT_TIMESTAMP, USER);
+  END IF;
+END;
+/
+  
+-- Test Data
+INSERT INTO Booking (BookingID, BookingDate, StartTime, EndTime, BookingStatus, MemberID, FacilityID) 
+VALUES ('BKI0000201', TO_DATE('2025-04-22','YYYY-MM-DD'), TO_TIMESTAMP('2025-04-22 10:00:00','YYYY-MM-DD HH24:MI:SS'), TO_TIMESTAMP('2025-04-22 11:00:00','YYYY-MM-DD HH24:MI:SS'), 'PENDING', 'MEM0000050', 'FAC0000001');
+
+UPDATE Booking
+SET BookingStatus = 'CONFIRMED'
+WHERE BookingID = 'BKI0000201';
+
+DELETE FROM Booking
+WHERE BookingID = 'BKI0000201';

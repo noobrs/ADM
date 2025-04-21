@@ -1,0 +1,147 @@
+SET SERVEROUTPUT ON
+SET linesize 120
+SET pagesize 100
+
+CREATE OR REPLACE FUNCTION fn_check_member_exists (p_MemberID CHAR) 
+RETURN BOOLEAN IS
+    v_count NUMBER;
+BEGIN
+    SELECT COUNT(*) 
+    INTO v_count
+    FROM Member
+    WHERE MemberID = p_MemberID;
+    
+    IF v_count > 0 THEN
+        RETURN TRUE;
+    ELSE
+        RETURN FALSE;
+    END IF;
+END fn_check_member_exists;
+/
+
+CREATE OR REPLACE PROCEDURE prc_membership_renewal (
+    p_MemberID           IN CHAR,
+    p_RenewalYears       IN NUMBER,
+    p_PaymentMethod      IN VARCHAR,
+    p_RenewalDate        IN DATE
+)
+IS
+    v_exists             NUMBER;
+    v_oldStartDate       DATE;
+    v_oldEndDate         DATE;
+    v_newStartDate       DATE;
+    v_newEndDate         DATE;
+    v_feePerYear         CONSTANT NUMBER(6,2) := 200.00;
+    v_totalFee           NUMBER(8,2);
+    v_InvoiceID          CHAR(10);
+    v_MemberRenewalID    CHAR(10);
+BEGIN
+
+    IF NOT fn_check_member_exists(p_MemberID) THEN
+        RAISE_APPLICATION_ERROR(-20000, 'No such member: ' || p_MemberID || '.');
+    END IF;
+
+    IF p_RenewalYears NOT BETWEEN 1 AND 3 THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Renewal years must be between 1 and 3.');
+    END IF;
+
+    SELECT StartDate, EndDate
+    INTO v_oldStartDate, v_oldEndDate
+    FROM Member
+    WHERE MemberID = p_MemberID;
+
+    IF p_RenewalDate <= v_oldEndDate THEN
+        v_newStartDate := v_oldStartDate;
+        v_newEndDate   := ADD_MONTHS(v_oldEndDate, p_RenewalYears * 12);
+    ELSE
+        v_newStartDate := p_RenewalDate;
+        v_newEndDate   := ADD_MONTHS(p_RenewalDate,  p_RenewalYears * 12);
+    END IF;
+
+    IF UPPER(p_PaymentMethod) NOT IN ('CASH', 'DEBIT CARD', 'CREDIT CARD',  'ONLINE BANKING') THEN
+        RAISE_APPLICATION_ERROR(-20002, 'Invalid payment method.');
+    END IF;
+
+    v_totalFee := v_feePerYear * p_RenewalYears;
+
+    SELECT 'INV' || TO_CHAR(invoice_seq.NEXTVAL, 'FM0000000')
+    INTO v_InvoiceID
+    FROM DUAL;
+
+    INSERT INTO Invoice (
+        InvoiceID,
+        PaymentDate,
+        PaymentMethod,
+        TotalAmount,
+        MemberID
+    ) VALUES (
+        v_InvoiceID,
+        p_RenewalDate,
+        p_PaymentMethod,
+        v_totalFee,
+        p_MemberID
+    );
+
+    SELECT 'MRE' || TO_CHAR(memberrenewal_seq.NEXTVAL, 'FM0000000')
+    INTO v_MemberRenewalID
+    FROM DUAL;
+
+    INSERT INTO MemberRenewal (
+        MemberRenewalID,
+        RenewalFee,
+        Duration,
+        RenewalDate,
+        InvoiceID,
+        MemberID
+    ) VALUES (
+        v_MemberRenewalID,
+        v_totalFee,
+        p_RenewalYears,
+        SYSDATE,
+        v_InvoiceID,
+        p_MemberID
+    );
+
+    UPDATE Member
+       SET StartDate = v_newStartDate,
+           EndDate   = v_newEndDate
+     WHERE MemberID = p_MemberID;
+
+--Output
+DBMS_OUTPUT.PUT_LINE('-------------------------------------------------- New Invoice Record --------------------------------------------------');
+DBMS_OUTPUT.PUT_LINE('Invoice ID      : '   || v_InvoiceID);
+DBMS_OUTPUT.PUT_LINE('Payment Date    : '   || TO_CHAR(p_RenewalDate, 'YYYY-MM-DD'));
+DBMS_OUTPUT.PUT_LINE('Payment Method  : '   || p_PaymentMethod);
+DBMS_OUTPUT.PUT_LINE('Total Amount    : '   || v_totalFee);
+DBMS_OUTPUT.PUT_LINE('Member ID       : '   || p_MemberID);
+DBMS_OUTPUT.PUT_LINE(LPAD('=', 54, '=') || RPAD(' End Of Invoice Record ', 66, '='));
+
+DBMS_OUTPUT.PUT_LINE('----------------------------------------------- New Member Renewal Record ----------------------------------------------');
+DBMS_OUTPUT.PUT_LINE('Member Renewal ID  : '   || v_MemberRenewalID);
+DBMS_OUTPUT.PUT_LINE('Renewal Fee        : '   || v_totalFee);
+DBMS_OUTPUT.PUT_LINE('Duration           : '   || p_RenewalYears);
+DBMS_OUTPUT.PUT_LINE('Renewal Date       : '   || TO_CHAR(p_RenewalDate, 'YYYY-MM-DD'));
+DBMS_OUTPUT.PUT_LINE('Invoice ID         : '   || v_InvoiceID);
+DBMS_OUTPUT.PUT_LINE('Member ID          : '   || p_MemberID);
+DBMS_OUTPUT.PUT_LINE(LPAD('=', 54, '=') || RPAD(' End Of Member Renewal Record ', 66, '='));
+
+DBMS_OUTPUT.PUT_LINE('Member ID: ' || p_MemberID || ' has renewed membership. ');
+DBMS_OUTPUT.PUT_LINE('Start Date: ' || TO_CHAR(v_newStartDate,'YYYY-MM-DD'));
+DBMS_OUTPUT.PUT_LINE('End Date: '   || TO_CHAR(v_newEndDate,'YYYY-MM-DD'));
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE_APPLICATION_ERROR(-20003, 'Unexpected Error: '|| SQLERRM);
+END;
+/
+
+EXEC prc_membership_renewal ('MEM0000050', 2, 'Cash', SYSDATE);
+
+EXEC prc_membership_renewal ('MEM0000051', 2, 'Cash', SYSDATE);
+
+EXEC prc_membership_renewal ('MEM0000050', 2, 'Touch N Go', SYSDATE);
+
+EXEC prc_membership_renewal ('MEM0000050', 4, 'Cash', SYSDATE);

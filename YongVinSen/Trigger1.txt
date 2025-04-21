@@ -72,7 +72,7 @@ BEGIN
    v_loan_id := 'LOA' || TO_CHAR(loan_seq.CURRVAL, 'FM0000000');
 
    UPDATE Loan
-   SET DueDate = '2025-5-20' WHERE LoanID = v_loan_id;
+   SET LoanDate = '2025-1-1', DueDate = '2025-1-15' WHERE LoanID = v_loan_id;
 END;
 /
 

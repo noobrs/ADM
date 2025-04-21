@@ -1,0 +1,49 @@
+SET LINESIZE 130;
+SET PAGESIZE 100;
+
+CREATE OR REPLACE VIEW vw_MonthlyRenewalRevenueDetail AS
+SELECT
+    EXTRACT(YEAR FROM mr.RenewalDate) AS Year,
+    EXTRACT(MONTH FROM mr.RenewalDate) AS Month,
+    m.MemberID,
+    m.FirstName || ' ' || m.LastName AS FullName,
+    mr.duration,
+    SUM(i.TotalAmount) AS TotalRenewalAmount
+FROM
+    MemberRenewal mr
+JOIN
+    Member m ON mr.MemberID = m.MemberID
+JOIN
+    Invoice i ON mr.InvoiceID = i.InvoiceID
+GROUP BY
+    EXTRACT(YEAR FROM mr.RenewalDate),
+    EXTRACT(MONTH FROM mr.RenewalDate),
+    m.MemberID,
+    m.FirstName,
+    m.LastName,
+    mr.duration
+ORDER BY
+    Year, Month, m.MemberID;
+
+TTITLE LEFT '========================================== Monthly Renewal Revenue Per Year ========================================== ' RIGHT 'PAGE: ' FORMAT 999 SQL.PNO SKIP 2
+REPFOOTER LEFT '<--------------------------------------------------- END OF REPORT --------------------------------------------------- >'
+
+COLUMN Year FORMAT A22 HEADING 'Year'
+COLUMN Month FORMAT A22 HEADING 'Month'
+COLUMN MemberID FORMAT A12 HEADING 'Member ID'
+COLUMN FullName FORMAT A20 HEADING 'Member Name'
+COLUMN Duration FORMAT 99 HEADING 'Duration (Years)'
+COLUMN TotalRenewalAmount FORMAT 9999.00 HEADING 'Total Amount Paid (RM)'
+
+BREAK ON Year SKIP 2 ON Month SKIP 2 ON MemberID ON FullName ON Duration ON TotalRenewalAmount
+COMPUTE SUM LABEL 'Total Monthly Amount: ' OF TotalRenewalAmount ON Month
+COMPUTE SUM LABEL 'Total Amount Per Year: ' OF TotalRenewalAmount ON Year
+
+SELECT TO_CHAR(Year) AS Year, TO_CHAR(Month) AS Month, MemberID, FullName, duration, TotalRenewalAmount 
+FROM vw_MonthlyRenewalRevenueDetail;
+
+CLEAR COLUMNS;
+CLEAR BREAKS;
+CLEAR COMPUTES;
+TTITLE OFF;
+REPFOOTER OFF;

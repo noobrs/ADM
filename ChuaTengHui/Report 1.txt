@@ -1,0 +1,142 @@
+SET SERVEROUTPUT ON;
+SET LINESIZE 200;
+SET PAGESIZE 80;
+
+CREATE OR REPLACE PROCEDURE prc_member_renewal_history(
+    v_memberId IN CHAR
+) IS
+
+    v_memberName     VARCHAR(50);
+
+    -- Variables for invoice fields
+    v_invoiceID      Invoice.InvoiceID%TYPE;
+    v_paymentDate    Invoice.PaymentDate%TYPE;
+    v_paymentMethod  Invoice.PaymentMethod%TYPE;
+    v_totalAmount    Invoice.TotalAmount%TYPE;
+
+    -- Variables for renewal fields
+    v_renewalID      MemberRenewal.MemberRenewalID%TYPE;
+    v_renewalFee     MemberRenewal.RenewalFee%TYPE;
+    v_duration       MemberRenewal.Duration%TYPE;
+    v_renewalDate    MemberRenewal.RenewalDate%TYPE;
+    v_associatedInv  MemberRenewal.InvoiceID%TYPE;
+
+    -- Totals and counters
+    v_invoiceCount        NUMBER := 0;
+    v_renewalCount        NUMBER := 0;
+    v_invoiceTotal        NUMBER(12,2) := 0;
+    v_renewalTotal        NUMBER(12,2) := 0;
+
+    CURSOR member_cur IS
+        SELECT FirstName || ' ' || LastName AS FullName
+        FROM Member
+        WHERE MemberID = v_memberId;
+
+    -- Outer cursor: all invoices for this member
+    CURSOR invCursor IS
+      SELECT InvoiceID, PaymentDate, PaymentMethod, TotalAmount
+      FROM   Invoice
+      WHERE  MemberID = v_memberId
+      ORDER BY PaymentDate;
+
+    -- Inner cursor: all renewals linked to one invoice
+    CURSOR renCursor IS
+        SELECT MemberRenewalID, RenewalDate, Duration, RenewalFee, InvoiceID
+        FROM MemberRenewal
+        WHERE MemberID = v_memberId
+        ORDER BY RenewalDate;
+
+BEGIN
+    -- Fetch member name
+    OPEN member_cur;
+    FETCH member_cur INTO v_memberName;
+    CLOSE member_cur;
+
+    -- Report header
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 95,'='));
+    DBMS_OUTPUT.PUT_LINE('On‑Demand Report: Member''s Invoice and Renewal History');
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 95,'='));
+    DBMS_OUTPUT.PUT_LINE('Member ID   : ' || v_memberId);
+    DBMS_OUTPUT.PUT_LINE('Member Name : ' || v_memberName);
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 95,'='));
+
+    -- Section 1: Invoice History
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('Invoice History');
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 95,'='));
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE(RPAD('Invoice Date', 15) || RPAD('Invoice ID', 15) || RPAD('Payment Method', 20) || RPAD('Total Amount (RM)', 20));
+    DBMS_OUTPUT.PUT_LINE(RPAD('-', 95, '-'));
+
+    OPEN invCursor;
+    LOOP
+        FETCH invCursor INTO v_invoiceID, v_paymentDate, v_paymentMethod, v_totalAmount;
+        EXIT WHEN invCursor%NOTFOUND;
+
+        DBMS_OUTPUT.PUT_LINE(RPAD(TO_CHAR(v_paymentDate, 'YYYY-MM-DD'), 15) ||
+                             RPAD(v_invoiceID, 15) ||
+                             RPAD(v_paymentMethod, 20) ||
+                             RPAD(TO_CHAR(v_totalAmount, '999,990.00'), 20));
+
+        v_invoiceCount := v_invoiceCount + 1;
+        v_invoiceTotal := v_invoiceTotal + NVL(v_totalAmount, 0);
+    END LOOP;
+    CLOSE invCursor;
+
+        -- Invoice Summary
+        DBMS_OUTPUT.PUT_LINE('');
+        DBMS_OUTPUT.PUT_LINE(RPAD('=', 95,'='));
+        DBMS_OUTPUT.PUT_LINE('Invoice Summary');
+        DBMS_OUTPUT.PUT_LINE(RPAD('=', 95,'='));
+        DBMS_OUTPUT.PUT_LINE('Total Number of Invoices : ' || v_invoiceCount);
+        DBMS_OUTPUT.PUT_LINE('Total Amount Paid        : ' || TO_CHAR(v_invoiceTotal, '999,990.00'));
+        DBMS_OUTPUT.PUT_LINE(RPAD('=', 95,'='));
+
+        -- Renewal sub-header
+       DBMS_OUTPUT.PUT_LINE('');
+       DBMS_OUTPUT.PUT_LINE(RPAD('=', 95,'='));
+       DBMS_OUTPUT.PUT_LINE('Renewal History');
+       DBMS_OUTPUT.PUT_LINE(RPAD('=', 95,'='));
+       DBMS_OUTPUT.PUT_LINE('');
+       DBMS_OUTPUT.PUT_LINE(RPAD('Renewal Date', 15) || RPAD('Renewal ID', 15) || RPAD('Duration (Months)', 20) || RPAD('Renewal Fee (RM)', 20) || RPAD('Associated Invoice ID', 25));
+        DBMS_OUTPUT.PUT_LINE(RPAD('-', 95, '-'));
+
+
+        -- Fetch each renewal for this invoice
+        OPEN renCursor;
+        LOOP
+            FETCH renCursor INTO v_renewalID, v_renewalDate, v_duration, v_renewalFee, v_associatedInv;
+            EXIT WHEN renCursor%NOTFOUND;
+
+            v_renewalCount := v_renewalCount + 1;
+            v_renewalTotal := v_renewalTotal + NVL(v_renewalFee, 0);
+
+        DBMS_OUTPUT.PUT_LINE(RPAD(TO_CHAR(v_renewalDate, 'YYYY-MM-DD'), 15) ||
+                             RPAD(v_renewalID, 15) ||
+                             RPAD(v_duration, 20) ||
+                             RPAD(TO_CHAR(v_renewalFee, '999,990.00'), 20) ||
+                             RPAD(v_associatedInv, 25));
+        END LOOP;
+        CLOSE renCursor;
+
+       -- Renewal Summary
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 95,'='));
+    DBMS_OUTPUT.PUT_LINE('Renewal Summary');
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 95,'='));
+    DBMS_OUTPUT.PUT_LINE('Total Number of Renewals : ' || v_renewalCount);
+    DBMS_OUTPUT.PUT_LINE('Total Renewal Fees Spent : ' || TO_CHAR(v_renewalTotal, '999,990.00'));
+
+    -- Grand Total
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 95,'='));
+    DBMS_OUTPUT.PUT_LINE('Grand Total');
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 95,'='));
+    DBMS_OUTPUT.PUT_LINE('Total Amount Spent by the Member: ' || TO_CHAR(v_invoiceTotal, '999,990.00'));
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 95, '='));
+    DBMS_OUTPUT.PUT_LINE('End Of Report');
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 95,'='));
+END;
+/
+
+EXEC prc_member_renewal_history ('MEM0000011');

@@ -1,0 +1,66 @@
+SET SERVEROUTPUT ON
+SET linesize 120
+SET pagesize 100
+
+CREATE OR REPLACE PROCEDURE prc_facility_maintenance(
+    p_FacilityID   IN CHAR,
+    p_StartDate    IN DATE,
+    p_EndDate      IN DATE,
+    p_status       VARCHAR DEFAULT 'Under Maintenance'
+)
+IS
+    v_exists  NUMBER;
+BEGIN
+    -- Validate date range
+    IF p_StartDate >= p_EndDate THEN
+        RAISE_APPLICATION_ERROR(-20000, 'Start date must be before end date.');
+    END IF;
+
+    SELECT COUNT(*) INTO v_exists
+    FROM Facility
+    WHERE FacilityID = p_FacilityID;
+
+    IF v_exists = 0 THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Facility does not exist.');
+    END IF;
+
+    -- Check for schedule conflicts
+    SELECT COUNT(*) INTO v_exists
+    FROM Booking
+    WHERE FacilityID = p_FacilityID
+      AND BookingStatus = 'COMPLETED'
+      AND (
+        StartTime < p_EndDate
+        AND EndTime > p_StartDate
+     );
+
+    IF v_exists > 0 THEN
+        RAISE_APPLICATION_ERROR(-20002, 'Maintenance period conflicts with active bookings.');
+    END IF;
+
+    -- Update facility status
+    UPDATE Facility
+    SET FacilityStatus = UPPER(p_status)
+    WHERE FacilityID = p_FacilityID;
+
+--Output
+DBMS_OUTPUT.PUT_LINE('---- Facility Maintenance Log ----');
+DBMS_OUTPUT.PUT_LINE('Facility ID    : ' || p_FacilityID);
+DBMS_OUTPUT.PUT_LINE('Facility Status: ' || p_status);
+DBMS_OUTPUT.PUT_LINE('Start Date     : ' || TO_CHAR(p_StartDate, 'YYYY-MM-DD'));
+DBMS_OUTPUT.PUT_LINE('End Date       : ' || TO_CHAR(p_EndDate, 'YYYY-MM-DD'));
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE_APPLICATION_ERROR(-20003, 'Unexpected Error: '|| SQLERRM);
+END;
+/
+
+EXEC prc_facility_maintenance ('FAC0000001', '2024-12-01', '2024-12-14', 'Under Maintenance');
+
+EXEC prc_facility_maintenance ('FAC0000001', '2024-05-28', '2024-05-25');
+
+EXEC prc_facility_maintenance ('FAC0000001', '2020-03-29', '2020-03-31');

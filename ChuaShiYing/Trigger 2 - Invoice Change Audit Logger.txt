@@ -58,7 +58,7 @@ BEGIN
 END;
 /
 
-TEST CASE
+--TEST CASE
 -- Insert
 INSERT INTO Invoice (InvoiceID, PaymentDate, PaymentMethod, TotalAmount, MemberID)
 VALUES ('INV999001', SYSDATE, 'Credit Card', 120, 'MEM0000010');

@@ -1,0 +1,53 @@
+SET LINESIZE 200;
+SET PAGESIZE 200;
+
+-- Create or replace view without year breakdown
+CREATE OR REPLACE VIEW vw_unpaid_fine AS
+SELECT 
+    m.MemberID,
+    m.FirstName || ' ' || m.LastName AS FullName,
+    b.Title AS BookTitle,
+    b.Genre,
+    COUNT(f.FineID) AS TotalFines,
+    SUM(f.FineAmount) AS TotalAmount
+FROM Fine f
+JOIN LoanDetail ld ON f.FineID = ld.FineID
+JOIN Loan l ON ld.LoanID = l.LoanID
+JOIN Member m ON l.MemberID = m.MemberID
+JOIN Book b ON ld.BookID = b.BookID
+WHERE f.FineStatus = 'UNPAID'
+GROUP BY 
+    m.MemberID,
+    m.FirstName,
+    m.LastName,
+    b.Title,
+    b.Genre
+HAVING SUM(f.FineAmount) > 1
+ORDER BY m.MemberID, SUM(f.FineAmount) DESC;
+
+-- Title and footer
+TTITLE LEFT '<<-- Combined Unpaid Fine Summary by Member -->>' SKIP 2
+REPFOOTER LEFT SKIP 2 '-- END OF REPORT --';
+
+-- Column formatting
+COLUMN MemberID     FORMAT A12         HEADING 'Member ID'
+COLUMN FullName     FORMAT A30         HEADING 'Member Name'
+COLUMN BookTitle    FORMAT A60         HEADING 'Book Title'
+COLUMN Genre        FORMAT A15         HEADING 'Genre'
+COLUMN TotalFines   FORMAT 99          HEADING 'No. of Fines'
+COLUMN TotalAmount  FORMAT 9990.99     HEADING 'Total Fine (RM)'
+
+-- Subtotals per member
+BREAK ON MemberID SKIP 2 ON REPORT;
+COMPUTE SUM LABEL 'Total:' OF TotalAmount ON MemberID;
+COMPUTE SUM LABEL 'Grand Total:' OF TotalAmount ON REPORT;
+
+-- Display the view
+SELECT * FROM vw_unpaid_fine;
+
+-- Reset
+CLEAR COLUMNS;
+CLEAR BREAKS;
+CLEAR COMPUTES;
+TTITLE OFF;
+REPFOOTER OFF;

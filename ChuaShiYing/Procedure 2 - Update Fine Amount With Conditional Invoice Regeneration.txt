@@ -80,12 +80,12 @@ EXCEPTION
 END;
 /
 
-SELECT * FROM FINE;
-SELECT * FROM FINE WHERE FineID = 'FIN0000100';
 SELECT * FROM INVOICE WHERE InvoiceID = 'INV0000200';
 
 -- Valid Test Case, Update Payment Amount
 EXEC prc_updateFineAmount('FIN0000100', 25, 'Credit Card');
+
+SELECT * FROM INVOICE WHERE InvoiceID = 'INV0000200';
 
 -- Invalid, Amount > 0
 EXEC prc_updateFineAmount('FIN0000100', 0, 'Credit Card');

@@ -1,0 +1,41 @@
+SET LINESIZE 200;
+SET PAGESIZE 200;
+
+CREATE OR REPLACE VIEW vw_top_fine_payers_per_year AS
+SELECT 
+    TO_CHAR(i.PaymentDate, 'YYYY') AS FineYear,
+    m.MemberID,
+    m.FirstName || ' ' || m.LastName AS FullName,
+    SUM(f.FineAmount) AS TotalFinesPaid
+FROM Fine f
+JOIN Invoice i ON f.InvoiceID = i.InvoiceID
+JOIN Member m ON i.MemberID = m.MemberID
+WHERE f.FineStatus = 'PAID'
+GROUP BY TO_CHAR(i.PaymentDate, 'YYYY'), m.MemberID, m.FirstName, m.LastName
+HAVING SUM(f.FineAmount) = (
+    SELECT MAX(SUM(f2.FineAmount))
+    FROM Fine f2
+    JOIN Invoice i2 ON f2.InvoiceID = i2.InvoiceID
+    WHERE TO_CHAR(i2.PaymentDate, 'YYYY') = TO_CHAR(i.PaymentDate, 'YYYY')
+    AND f2.FineStatus = 'PAID'
+    GROUP BY i2.MemberID
+)
+ORDER BY FineYear DESC;
+
+TTITLE LEFT '=== [ TOP FINE PAYING MEMBERS PER YEAR ] ===' SKIP 2
+REPFOOTER LEFT '--- END OF REPORT ---'
+
+COLUMN FineYear FORMAT A12 HEADING 'Year'
+COLUMN MemberID FORMAT A15 HEADING 'Member ID'
+COLUMN FullName FORMAT A35 HEADING 'Member Name'
+COLUMN TotalFinesPaid FORMAT 99990.00 HEADING 'Total Fines Paid (RM)'
+
+BREAK ON FineYear SKIP 2
+
+SELECT FineYear, MemberID, FullName, TotalFinesPaid
+FROM vw_top_fine_payers_per_year;
+
+CLEAR COLUMNS;
+CLEAR BREAKS;
+TTITLE OFF;
+REPFOOTER OFF;

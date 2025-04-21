@@ -1,0 +1,167 @@
+SET SERVEROUTPUT ON;
+SET LINESIZE 200;
+SET PAGESIZE 120;
+
+COLUMN BookingID             FORMAT A10  HEADING "Booking ID"
+COLUMN MemberID              FORMAT A10  HEADING "Member ID"
+COLUMN HasExpiredMembership  FORMAT A3   HEADING "Exp"
+COLUMN DaysSinceExpiry       FORMAT 999  HEADING "Days Expired"
+COLUMN OldUnpaidFinesCount   FORMAT 999  HEADING "Unpaid Fines"
+COLUMN OldestFineDaysOverdue FORMAT 999  HEADING "Oldest Fine(Days)"
+COLUMN BlockReason           FORMAT A80  HEADING "Block Reason" WORD_WRAPPED
+COLUMN AttemptTimestamp      FORMAT A20  HEADING "Action Date"
+
+-- FineStaging Table
+CREATE TABLE FineStaging (
+  FineID        CHAR(10) PRIMARY KEY,
+  MemberID      CHAR(10) NOT NULL,
+  FineAmount    NUMBER(6,2) NOT NULL,
+  IssueDate     DATE DEFAULT SYSDATE,
+  FineStatus    VARCHAR2(20) DEFAULT 'UNPAID'
+);
+
+DROP TABLE BookingBlockAudit;
+
+CREATE TABLE BookingBlockAudit (
+  BookingID             CHAR(10),
+  MemberID              CHAR(10),
+  HasExpiredMembership  CHAR(1),
+  DaysSinceExpiry       NUMBER,
+  OldUnpaidFinesCount   NUMBER,
+  OldestFineDaysOverdue NUMBER,
+  BlockReason           VARCHAR(200),
+  AttemptTimestamp      DATE
+);
+
+CREATE OR REPLACE TRIGGER trg_block_booking_condition
+BEFORE INSERT ON Booking
+FOR EACH ROW
+DECLARE
+  PRAGMA AUTONOMOUS_TRANSACTION;
+  v_end_date           DATE;
+  v_days_expired       NUMBER := 0;
+  v_fine_count         NUMBER := 0;
+  v_oldest_issue       DATE;
+  v_days_oldest        NUMBER := 0;
+  v_reason             VARCHAR(200);
+
+EMPTY_DATA EXCEPTION;
+PRAGMA EXCEPTION_INIT(EMPTY_DATA, -20000);
+
+BEGIN
+   --Fetch membership end date
+   SELECT EndDate
+   INTO v_end_date
+   FROM Member
+   WHERE TRIM(MemberID) = TRIM(:NEW.MemberID);
+
+      v_days_expired := TRUNC(SYSDATE) - v_end_date;
+
+  --Count unpaid fines older than 60 days from FineStaging
+  SELECT COUNT(*)
+    INTO v_fine_count
+    FROM FineStaging
+   WHERE MemberID = :NEW.MemberID
+     AND FineStatus = 'UNPAID'
+     AND TRUNC(IssueDate) < TRUNC(SYSDATE) - 60;
+
+  --Find the oldest unpaid fine issue date
+  IF v_fine_count > 0 THEN
+    SELECT MIN(IssueDate)
+      INTO v_oldest_issue
+      FROM FineStaging
+     WHERE MemberID = :NEW.MemberID
+       AND FineStatus = 'UNPAID'
+       AND TRUNC(IssueDate) < TRUNC(SYSDATE) - 60;
+
+    v_days_oldest := TRUNC(SYSDATE) - v_oldest_issue;
+  END IF;
+
+  --Compose the block reason
+  IF v_days_expired > 0 AND v_fine_count > 0 THEN
+    v_reason := 'Membership has been expired ' || v_days_expired || ' days ago; ' ||
+                v_fine_count || ' unpaid fine(s), ' ||
+                v_days_oldest || ' days overdue.';
+  ELSIF v_days_expired > 0 THEN
+    v_reason := 'Membership has been expired ' || v_days_expired || ' days ago.';
+  ELSIF v_fine_count > 0 THEN
+    v_reason := v_fine_count || ' unpaid fine(s), ' ||
+                v_days_oldest || ' days overdue.';
+  END IF;
+
+  --Log and block if needed
+  IF v_days_expired > 0 OR v_fine_count > 0 THEN
+    BEGIN
+      INSERT INTO BookingBlockAudit (
+        BookingID, MemberID, HasExpiredMembership,
+        DaysSinceExpiry, OldUnpaidFinesCount,
+        OldestFineDaysOverdue, BlockReason, AttemptTimestamp
+      ) VALUES (
+        :NEW.BookingID,
+        :NEW.MemberID,
+        CASE WHEN v_days_expired > 0 THEN 'Y' ELSE 'N' END,
+        v_days_expired,
+        v_fine_count,
+        v_days_oldest,
+        v_reason,
+        SYSDATE
+      );
+      COMMIT;
+    END;
+
+    RAISE_APPLICATION_ERROR(-20030, 'Booking denied: ' || v_reason);
+  END IF;
+EXCEPTION
+  WHEN EMPTY_DATA THEN
+    RAISE_APPLICATION_ERROR(-20000, 'Booking failed: Member data not found.');
+END;
+/
+
+
+INSERT INTO Member (MemberID, FirstName, LastName, DOB, PhoneNumber, Gender, Email, StartDate, EndDate)
+VALUES ('MEM0001002', 'Bob', 'Lee', TO_DATE('1985-05-15', 'YYYY-MM-DD'), '0134567890', 'M', 'boblee@example.com', TO_DATE('2023-01-01', 'YYYY-MM-DD'), TO_DATE('2024-12-31', 'YYYY-MM-DD'));
+-- Attempt to insert a booking for the expired member
+INSERT INTO Booking (BookingID, BookingDate, StartTime, EndTime, BookingStatus, CheckInTime, CheckOutTime, MemberID, FacilityID)
+VALUES ('BKI0000202', TO_DATE('2025-04-18', 'YYYY-MM-DD'), TO_TIMESTAMP('2025-04-18 10:00:00', 'YYYY-MM-DD HH24:MI:SS'), TO_TIMESTAMP('2025-04-18 11:00:00', 'YYYY-MM-DD HH24:MI:SS'), 'CONFIRMED', NULL, NULL, 'MEM0001002', 'FAC0000013');
+
+
+
+-- Insert expired member
+INSERT INTO Member VALUES (
+  'MEM0010004', 'Dan', 'Yeo', TO_DATE('1985-04-04','YYYY-MM-DD'),
+  '0145678901', 'M', 'dan@example.com',
+  TO_DATE('2023-01-01','YYYY-MM-DD'), TO_DATE('2024-12-31','YYYY-MM-DD')
+);
+
+-- Insert unpaid fine older than 60 days
+INSERT INTO FineStaging VALUES (
+  'FINE001002', 'MEM0010004', 75.00,
+  TO_DATE('2023-11-15','YYYY-MM-DD'), 'UNPAID'
+);
+
+-- Attempt booking
+INSERT INTO Booking VALUES (
+  'BKI0010004', TO_DATE('2025-04-17','YYYY-MM-DD'),
+  TO_TIMESTAMP('2025-04-17 15:00:00','YYYY-MM-DD HH24:MI:SS'),
+  TO_TIMESTAMP('2025-04-17 16:00:00','YYYY-MM-DD HH24:MI:SS'),
+  'CONFIRMED', NULL, NULL, 'MEM0010004', 'FAC0000001'
+);
+
+
+
+-- Insert a member with an active membership
+INSERT INTO Member (MemberID, FirstName, LastName, DOB, PhoneNumber, Gender, Email, StartDate, EndDate)
+VALUES ('MEM0001003', 'Carol', 'Ng', TO_DATE('1992-03-10', 'YYYY-MM-DD'), '0145678901', 'F', 'carolng@example.com', TO_DATE('2024-01-01', 'YYYY-MM-DD'), TO_DATE('2025-12-31', 'YYYY-MM-DD'));
+-- Insert unpaid fine older than 60 days
+INSERT INTO FineStaging VALUES (
+  'FINE001003', 'MEM0010003', 75.00,
+  TO_DATE('2023-11-15','YYYY-MM-DD'), 'UNPAID'
+);
+
+-- Attempt booking
+INSERT INTO Booking VALUES (
+  'BKI0010005', TO_DATE('2025-04-17','YYYY-MM-DD'),
+  TO_TIMESTAMP('2025-04-17 15:00:00','YYYY-MM-DD HH24:MI:SS'),
+  TO_TIMESTAMP('2025-04-17 16:00:00','YYYY-MM-DD HH24:MI:SS'),
+  'CONFIRMED', NULL, NULL, 'MEM0010003', 'FAC0000002'
+);

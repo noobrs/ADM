@@ -29,6 +29,11 @@ CREATE OR REPLACE PROCEDURE prc_member_loan_summary (p_start_date IN DATE, p_end
     v_grand_total_books NUMBER := 0;
     v_grand_total_members NUMBER := 0;
 BEGIN
+
+   IF p_end_date <= p_start_date THEN
+       RAISE_APPLICATION_ERROR(-20000, 'Start Date must before End Date!');
+   END IF;
+
     DBMS_OUTPUT.PUT_LINE(RPAD('=', 90, '='));
     DBMS_OUTPUT.PUT_LINE(LPAD('MEMBER LOAN SUMMARY REPORT', 55));
     DBMS_OUTPUT.PUT_LINE('Period: ' || TO_CHAR(p_start_date, 'DD-MON-YYYY') || 
