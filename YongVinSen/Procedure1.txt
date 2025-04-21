@@ -65,9 +65,9 @@ BEGIN
       INSERT INTO LoanDetail (LoanID, BookID, Status)
       VALUES (v_new_loan_id, v_book_id, 'BORROWED');
       
-      UPDATE Book
-      SET AvailableCopies = AvailableCopies - 1
-      WHERE BookID = v_book_id;
+      --UPDATE Book
+      --SET AvailableCopies = AvailableCopies - 1
+      --WHERE BookID = v_book_id;
       
         EXIT WHEN v_next_pos = 0;
         v_pos := v_next_pos + 1;

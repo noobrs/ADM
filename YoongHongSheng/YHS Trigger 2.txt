@@ -94,7 +94,7 @@ WHERE MemberID = 'MEM0000050';
 
 UPDATE Member SET 
 Email = 'lengzai123@example.com',
-PhoneNumber = '012-3456789',
+PhoneNumber = '0123456789',
 FirstName = 'Leng',
 LastName = 'Zai'
 WHERE MemberID = 'MEM0000050';
@@ -104,3 +104,4 @@ SELECT MemberID, ChangeType, OldValue, NewValue, ChangedBy, ChangeDate, TO_CHAR(
 CLEAR COLUMNS;
 ROLLBACK;
 DROP TABLE AuditMemberChange;
+DROP TRIGGER trg_audit_member_changes;

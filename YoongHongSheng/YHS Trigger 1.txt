@@ -14,7 +14,7 @@ CREATE TABLE ReservationDetail_Audit (
   UserID          VARCHAR2(10),
   TransDate       DATE,
   TransTime       TIMESTAMP,
-  Action          VARCHAR2(10),
+  Action          VARCHAR2(10)
 );
 
 CREATE OR REPLACE TRIGGER trg_update_available_copies
@@ -69,7 +69,7 @@ BEGIN
     v_newAvailable := v_oldAvailable - v_quantity;
   END IF;
 
-  UPDATE Book
+  UPDATE BOOK
   SET AvailableCopies = v_newAvailable
   WHERE BookID = :NEW.BookID;
 
@@ -109,3 +109,4 @@ SELECT * FROM ReservationDetail_Audit;
 DROP TABLE ReservationDetail_Audit;
 DELETE FROM ReservationDetail WHERE ReservationID = 'RES0000101';
 DELETE FROM Reservation WHERE ReservationID = 'RES0000101';
+DROP TRIGGER trg_update_available_copies;

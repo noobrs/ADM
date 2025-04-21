@@ -2,6 +2,7 @@
 SET LINESIZE 150;
 SET PAGESIZE 100;
 SET SERVEROUTPUT ON;
+ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD HH24:MI:SS';
 
 CREATE OR REPLACE PROCEDURE prc_book_facility (
   v_memberID IN CHAR,
@@ -41,17 +42,20 @@ BEGIN
 
   IF v_bookingDate < TRUNC(SYSDATE) THEN
     RAISE_APPLICATION_ERROR(-20000, 'Date not available.');
-  ELSIF v_bookingDate = TRUNC(SYSDATE) THEN
-    IF v_startTime >= v_endTime THEN
-      RAISE_APPLICATION_ERROR(-20000, 'Invalid time.');
-    ELSIF TO_CHAR(v_startTime, 'HH24:MI') < '08:00' OR TO_CHAR(v_endTime, 'HH24:MI') > '22:00' THEN
-      RAISE_APPLICATION_ERROR(-20000, 'Time not in operation hour.');
-    ELSIF EXTRACT(HOUR FROM (v_endTime - v_startTime)) > 5 THEN
-      RAISE_APPLICATION_ERROR(-20000, 'Exceed maximum booking time.');
-    ELSIF v_bookedToday > 0 THEN
-      RAISE_APPLICATION_ERROR(-20000, 'Exceed limit for facility booking today.');
-    END IF;
   END IF;
+
+  IF v_startTime >= v_endTime THEN
+    RAISE_APPLICATION_ERROR(-20000, 'Invalid time.');
+  ELSIF TO_CHAR(v_startTime, 'HH24:MI') < '08:00' OR TO_CHAR(v_endTime, 'HH24:MI') > '22:00' THEN
+    RAISE_APPLICATION_ERROR(-20000, 'Time not in operation hour.');
+  ELSIF EXTRACT(HOUR FROM (v_endTime - v_startTime)) > 5 THEN
+    RAISE_APPLICATION_ERROR(-20000, 'Exceed maximum booking time.');
+  END IF;
+
+  IF v_bookedToday > 0 THEN
+    RAISE_APPLICATION_ERROR(-20000, 'Exceed limit for facility booking today.');
+  END IF;
+
 
   UPDATE Facility
   SET FacilityStatus = 'BOOKED'
@@ -74,8 +78,6 @@ BEGIN
   EXCEPTION
     WHEN NO_DATA_FOUND THEN
       RAISE_APPLICATION_ERROR(-20000, 'Invalid member or facility ID.');
-    WHEN OTHERS THEN
-      RAISE_APPLICATION_ERROR(-20000, 'Something went wrong when facility booking.');
 END;
 /
 
@@ -94,3 +96,4 @@ EXEC prc_book_facility('MEM0000048', 'FAC0000010', '2025-04-22', '2025-04-22 7:0
 EXEC prc_book_facility('MEM0000041', 'FAC0000018', '2025-04-21', '2025-04-21 10:00:00', '2025-04-21 17:00:00');
 --Exceed limit for facility booking today
 EXEC prc_book_facility('MEM0000048', 'FAC0000005', '2025-04-22', '2025-04-22 14:00:00', '2025-04-22 17:00:00');
+DROP PROCEDURE prc_book_facility;

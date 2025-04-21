@@ -32,3 +32,4 @@ CLEAR COLUMNS;
 CLEAR BREAKS;
 TTITLE OFF;
 REPFOOTER OFF;
+DROP VIEW vw_members_highest_overdue;

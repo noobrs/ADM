@@ -94,4 +94,5 @@ BEGIN
 END;
 /
 
-EXEC prc_facility_usage_by_year(2025)
+EXEC prc_facility_usage_by_year(2025);
+DROP PROCEDURE prc_facility_usage_by_year;

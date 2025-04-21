@@ -69,4 +69,5 @@ BEGIN
 END;
 /
 
-EXEC prc_member_reservation_history('june', 2023)
+EXEC prc_member_reservation_history('june', 2023);
+DROP PROCEDURE prc_member_reservation_history;

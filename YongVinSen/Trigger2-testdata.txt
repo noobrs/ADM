@@ -1,0 +1,165 @@
+select bookid, availableCopies, borrowedcount 
+from book 
+where bookid in ('BOK0000010', 'BOK0000009', 'BOK0000008', 'BOK0000007');
+
+SET SERVEROUTPUT ON
+DECLARE
+  v_loan1   Loan.LoanID%TYPE;
+  v_loan2   Loan.LoanID%TYPE;
+  v_fine1   Fine.FineID%TYPE;
+BEGIN
+  --------------------------------------------------
+  -- 1) Create two loans, IDs via loan_seq
+  --------------------------------------------------
+  v_loan1 := 'LOA' || TO_CHAR(loan_seq.NEXTVAL, 'FM0000000');
+  INSERT INTO Loan(LoanID,LoanDate,DueDate,MemberID)
+    VALUES (v_loan1, SYSDATE, SYSDATE+14, 'MEM0000012');
+
+  v_loan2 := 'LOA' || TO_CHAR(loan_seq.NEXTVAL, 'FM0000000');
+  INSERT INTO Loan(LoanID,LoanDate,DueDate,MemberID)
+    VALUES (v_loan2, SYSDATE, SYSDATE+14, 'MEM0000012');
+
+  --------------------------------------------------
+  -- 2) INSERT: three ACTIVE borrows on v_loan1
+  --    → +1 BorrowedCount, –1 AvailableCopies each
+  --------------------------------------------------
+  INSERT INTO LoanDetail(LoanID,BookID,ReturnDate,ExtensionCount,ExtendedDueDate,Status,FineID)
+  VALUES (v_loan1, 'BOK0000009', NULL, 0, NULL, 'BORROWED', NULL);
+
+  INSERT INTO LoanDetail(LoanID,BookID,ReturnDate,ExtensionCount,ExtendedDueDate,Status,FineID)
+  VALUES (v_loan1, 'BOK0000008', NULL, 0, NULL, 'BORROWED', NULL);
+
+  INSERT INTO LoanDetail(LoanID,BookID,ReturnDate,ExtensionCount,ExtendedDueDate,Status,FineID)
+  VALUES (v_loan1, 'BOK0000007', NULL, 0, NULL, 'BORROWED', NULL);
+
+  --------------------------------------------------
+  -- 3) INSERT: one PAST loan on v_loan1
+  --    → +1 BorrowedCount only
+  --------------------------------------------------
+  INSERT INTO LoanDetail(LoanID,BookID,ReturnDate,ExtensionCount,ExtendedDueDate,Status,FineID)
+  VALUES (v_loan1, 'BOK0000010', SYSDATE-1, 0, NULL, 'RETURNED', NULL);
+
+  --------------------------------------------------
+  -- 4) UPDATE: BORROWED → EXTENDED (active→active)
+  --    → no change to counts
+  --------------------------------------------------
+  UPDATE LoanDetail
+     SET ExtensionCount  = 1,
+         ExtendedDueDate = SYSDATE+7,
+         Status          = 'EXTENDED'
+   WHERE LoanID = v_loan1
+     AND BookID = 'BOK0000009';
+
+  --------------------------------------------------
+  -- 5) UPDATE: EXTENDED → RETURNED (active→past) + attach Fine
+  --    → +1 AvailableCopies
+  --------------------------------------------------
+  v_fine1 := 'FIN' || TO_CHAR(fine_seq.NEXTVAL, 'FM0000000');
+  INSERT INTO Fine(
+    FineID,
+    FineAmount,
+    FineStatus,
+    IssueDate,
+    Remark,
+    InvoiceID
+  ) VALUES (
+    v_fine1,
+    10.00,
+    'UNPAID',
+    SYSDATE,
+    'Late fee',
+    NULL
+  );
+
+  UPDATE LoanDetail
+     SET ReturnDate = SYSDATE,
+         Status     = 'RETURNED',
+         FineID     = v_fine1
+   WHERE LoanID = v_loan1
+     AND BookID = 'BOK0000009';
+
+  --------------------------------------------------
+  -- 6) UPDATE: RETURNED → BORROWED (past→active)
+  --    → –1 AvailableCopies
+  --------------------------------------------------
+  UPDATE LoanDetail
+     SET ReturnDate = NULL,
+         Status     = 'BORROWED',
+         FineID     = NULL
+   WHERE LoanID = v_loan1
+     AND BookID = 'BOK0000009';
+
+  --------------------------------------------------
+  -- 7) UPDATE: swap BookID on an ACTIVE loan
+  --    → old book +1 Avail,–1 Count; new book –1 Avail,+1 Count
+  --------------------------------------------------
+  UPDATE LoanDetail
+     SET BookID = 'BOK0000011'
+   WHERE LoanID = v_loan1
+     AND BookID = 'BOK0000008';
+
+
+  --------------------------------------------------
+  -- 8) UPDATE: swap BookID on a PAST loan
+  --    → shift only BorrowedCount between books
+  --------------------------------------------------
+  UPDATE LoanDetail
+     SET BookID = 'BOK0000012'
+   WHERE LoanID = v_loan1
+     AND BookID = 'BOK0000010';
+
+  --------------------------------------------------
+  -- 9) UPDATE: combined BookID swap + Active→Past
+  --    → old book returns copy; new book just gets count
+  --------------------------------------------------
+  UPDATE LoanDetail
+     SET BookID     = 'BOK0000013',
+         Status     = 'SCRATCH',
+         ReturnDate = SYSDATE
+   WHERE LoanID = v_loan1
+     AND BookID = 'BOK0000007';
+
+  --------------------------------------------------
+  --10) UPDATE: move a detail from v_loan1 → v_loan2
+  --    → no count changes
+  --------------------------------------------------
+  UPDATE LoanDetail
+     SET LoanID = v_loan2
+   WHERE LoanID = v_loan1
+     AND BookID = 'BOK0000011';
+
+  --------------------------------------------------
+  --11) DELETE: remove an ACTIVE detail (v_loan2,'BOK0000011')
+  --    → –1 BorrowedCount, +1 AvailableCopies
+  --------------------------------------------------
+  DELETE FROM LoanDetail
+   WHERE LoanID = v_loan2
+     AND BookID = 'BOK0000011';
+
+  --------------------------------------------------
+  --12) DELETE: remove a PAST detail (v_loan1,'BOK0000012')
+  --    → –1 BorrowedCount only
+  --------------------------------------------------
+  DELETE FROM LoanDetail
+   WHERE LoanID = v_loan1
+     AND BookID = 'BOK0000012';
+
+  --------------------------------------------------
+  --13) LATE‑RETURNED path
+  --    → insert BORROWED then mark LATE RETURNED
+  --    → +1 AvailableCopies
+  --------------------------------------------------
+  INSERT INTO LoanDetail(LoanID,BookID,ReturnDate,ExtensionCount,ExtendedDueDate,Status,FineID)
+  VALUES (v_loan1, 'BOK0000014', NULL, 0, NULL, 'BORROWED', NULL);
+
+  UPDATE LoanDetail
+     SET ReturnDate = SYSDATE,
+         Status     = 'LATE RETURNED'
+   WHERE LoanID = v_loan1
+     AND BookID = 'BOK0000014';
+
+  COMMIT;
+END;
+/
+
+SELECT * FROM LoanDetailAudit;

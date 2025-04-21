@@ -88,3 +88,4 @@ EXEC prc_check_pending_reservation ('RES0000104');
 
 DELETE FROM ReservationDetail WHERE ReservationID > 'RES0000100';
 DELETE FROM Reservation WHERE ReservationID > 'RES0000100';
+DROP PROCEDURE prc_check_pending_reservation;
