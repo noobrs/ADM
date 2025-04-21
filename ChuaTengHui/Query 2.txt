@@ -1,15 +1,18 @@
-SET LINESIZE 100;
+SET LINESIZE 140;
 SET PAGESIZE 80;
 
 CREATE OR REPLACE VIEW vw_AnnualFacilityUsage AS
 WITH CategorizedFacility AS (
     SELECT
         FacilityID,
+        Description,
+        Capacity,
         Name AS FacilityName,
+        Venue,
         CASE
-            WHEN LOWER(Description) = 'quiet individual study room with charging station' THEN 'Self Study Room 1 - 4'
-            WHEN LOWER(Description) = 'soundproof single study room' THEN 'Self Study Room 5 - 8'
-            WHEN LOWER(Description) = 'collaborative space with wireless display' THEN 'Group Study Room 1 - 2'
+            WHEN LOWER(Description) = 'quiet individual study room with charging station' THEN 'Self Study Room 1 to 4'
+            WHEN LOWER(Description) = 'soundproof single study room' THEN 'Self Study Room 5 to 8'
+            WHEN LOWER(Description) = 'collaborative space with wireless display' THEN 'Group Study Room 1 to 2'
             WHEN LOWER(Description) = 'spacious room with whiteboard and shared table' THEN 'Group Study Room 3 to 6'
             WHEN LOWER(Description) = 'equipped with hdmi screen and multiple chairs' THEN 'Group Study Room 7 to 8'
             WHEN LOWER(Description) = 'room for formal group discussions and seminars' THEN 'Discussion Room 1 to 2'
@@ -21,7 +24,10 @@ WITH CategorizedFacility AS (
 SELECT
     EXTRACT(YEAR FROM b.BookingDate) AS Year,
     cf.FacilityCategory,
+    cf.Description,
+    cf.Capacity,
     cf.FacilityName,
+    cf.Venue,
     COUNT(DISTINCT b.BookingID) AS TotalBookings
 FROM Booking b
 LEFT JOIN Member m ON b.MemberID = m.MemberID
@@ -30,30 +36,36 @@ WHERE TRIM(UPPER(b.BookingStatus)) != 'CANCELLED'
 GROUP BY
     EXTRACT(YEAR FROM b.BookingDate),
     cf.FacilityCategory,
-    cf.FacilityName
-HAVING COUNT(b.BookingID) > 0;
+    cf.Description,
+    cf.Capacity,
+    cf.FacilityName,
+    cf.Venue
+HAVING COUNT(b.BookingID) >= 1;
 
 -- Drop indexes
 DROP INDEX idx_booking_memberid;
-DROP INDEX idx_facility_facilityid;
+DROP INDEX idx_booking_facilityid;
 
 -- Create indexes
-CREATE INDEX idx_booking_memberid ON Booking(MemberID);
-CREATE INDEX idx_facility_facilityid ON Facility(FacilityID);
+CREATE INDEX idx_booking_memberid ON Booking(UPPER(MemberID));
+CREATE INDEX idx_booking_facilityid ON Booking(UPPER(FacilityID));
 
-TTITLE LEFT '====================== Annual Facility Usage by Category and Name ====================== ' RIGHT 'PAGE: ' FORMAT 999 SQL.PNO SKIP 2
-REPFOOTER LEFT '<---------------------------------------- END OF REPORT ---------------------------------------- >'
+TTITLE LEFT '========================================== Annual Facility Usage by Category and Name ==========================================' RIGHT 'PAGE: ' FORMAT 999 SQL.PNO SKIP 2
+REPFOOTER LEFT '<------------------------------------------------------------ END OF REPORT ------------------------------------------------------------>'
 
-COLUMN Year FORMAT A24 HEADING 'Year'
-COLUMN FacilityCategory FORMAT A28 HEADING 'Category'
-COLUMN FacilityName FORMAT A20 HEADING 'Facility Name'
-COLUMN TotalBookings FORMAT 999 HEADING 'Total Bookings'
+COLUMN Year             FORMAT A14 HEADING 'Year'
+COLUMN FacilityCategory FORMAT A24 HEADING 'Category'
+COLUMN Description      FORMAT A50 HEADING 'Description'
+COLUMN Capacity         FORMAT 999 HEADING 'Cap.'
+COLUMN FacilityName     FORMAT A20 HEADING 'Facility Name'
+COLUMN Venue            FORMAT A5  HEADING 'Venue'
+COLUMN TotalBookings    FORMAT 999 HEADING 'Total Bookings'
 
-BREAK ON Year SKIP 2 ON FacilityCategory SKIP 2 ON FacilityName ON TotalBookings
-COMPUTE SUM LABEL 'Total Bookings Per Category: ' OF TotalBookings ON FacilityCategory
-COMPUTE SUM LABEL 'Total Bookings Per Year: ' OF TotalBookings ON Year
+BREAK ON Year SKIP 2 ON FacilityCategory SKIP 2 ON Description ON Capacity ON FacilityName ON Venue ON TotalBookings
+COMPUTE SUM LABEL 'Category Total: ' OF TotalBookings ON FacilityCategory
+COMPUTE SUM LABEL 'Annual Total: ' OF TotalBookings ON Year
 
-SELECT TO_CHAR(Year) AS Year, FacilityCategory, FacilityName, TotalBookings
+SELECT TO_CHAR(Year) AS Year, FacilityCategory, Description, Capacity, FacilityName, Venue, TotalBookings
 FROM vw_AnnualFacilityUsage
 ORDER BY Year, FacilityCategory, FacilityName;
 

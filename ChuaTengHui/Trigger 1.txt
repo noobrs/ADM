@@ -58,3 +58,5 @@ WHERE BookingID = 'BKI0000201';
 
 DELETE FROM Booking
 WHERE BookingID = 'BKI0000201';
+
+SELECT * FROM BookingAudit;

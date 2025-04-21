@@ -1,6 +1,6 @@
 SET SERVEROUTPUT ON
-SET linesize 120
-SET pagesize 100
+SET LINESIZE 120
+SET PAGESIZE 100
 
 CREATE OR REPLACE FUNCTION fn_check_member_exists (p_MemberID CHAR) 
 RETURN BOOLEAN IS
@@ -95,7 +95,7 @@ BEGIN
         MemberID
     ) VALUES (
         v_MemberRenewalID,
-        v_totalFee,
+        v_feePerYear,
         p_RenewalYears,
         SYSDATE,
         v_InvoiceID,
@@ -109,25 +109,25 @@ BEGIN
 
 --Output
 DBMS_OUTPUT.PUT_LINE('-------------------------------------------------- New Invoice Record --------------------------------------------------');
-DBMS_OUTPUT.PUT_LINE('Invoice ID      : '   || v_InvoiceID);
-DBMS_OUTPUT.PUT_LINE('Payment Date    : '   || TO_CHAR(p_RenewalDate, 'YYYY-MM-DD'));
-DBMS_OUTPUT.PUT_LINE('Payment Method  : '   || p_PaymentMethod);
-DBMS_OUTPUT.PUT_LINE('Total Amount    : '   || v_totalFee);
-DBMS_OUTPUT.PUT_LINE('Member ID       : '   || p_MemberID);
-DBMS_OUTPUT.PUT_LINE(LPAD('=', 54, '=') || RPAD(' End Of Invoice Record ', 66, '='));
+DBMS_OUTPUT.PUT_LINE('Invoice ID         : '   || v_InvoiceID);
+DBMS_OUTPUT.PUT_LINE('Payment Date       : '   || TO_CHAR(p_RenewalDate, 'YYYY-MM-DD'));
+DBMS_OUTPUT.PUT_LINE('Payment Method     : '   || p_PaymentMethod);
+DBMS_OUTPUT.PUT_LINE('Total Amount       : '   || v_totalFee);
+DBMS_OUTPUT.PUT_LINE('Member ID          : '   || p_MemberID);
+DBMS_OUTPUT.PUT_LINE(LPAD('=', 47, '=') || RPAD(' End Of Invoice Record ', 73, '='));
 
 DBMS_OUTPUT.PUT_LINE('----------------------------------------------- New Member Renewal Record ----------------------------------------------');
 DBMS_OUTPUT.PUT_LINE('Member Renewal ID  : '   || v_MemberRenewalID);
-DBMS_OUTPUT.PUT_LINE('Renewal Fee        : '   || v_totalFee);
+DBMS_OUTPUT.PUT_LINE('Renewal Fee        : '   || v_feePerYear);
 DBMS_OUTPUT.PUT_LINE('Duration           : '   || p_RenewalYears);
 DBMS_OUTPUT.PUT_LINE('Renewal Date       : '   || TO_CHAR(p_RenewalDate, 'YYYY-MM-DD'));
 DBMS_OUTPUT.PUT_LINE('Invoice ID         : '   || v_InvoiceID);
 DBMS_OUTPUT.PUT_LINE('Member ID          : '   || p_MemberID);
-DBMS_OUTPUT.PUT_LINE(LPAD('=', 54, '=') || RPAD(' End Of Member Renewal Record ', 66, '='));
+DBMS_OUTPUT.PUT_LINE(LPAD('=', 45, '=') || RPAD(' End Of Member Renewal Record ', 75, '='));
 
-DBMS_OUTPUT.PUT_LINE('Member ID: ' || p_MemberID || ' has renewed membership. ');
-DBMS_OUTPUT.PUT_LINE('Start Date: ' || TO_CHAR(v_newStartDate,'YYYY-MM-DD'));
-DBMS_OUTPUT.PUT_LINE('End Date: '   || TO_CHAR(v_newEndDate,'YYYY-MM-DD'));
+DBMS_OUTPUT.PUT_LINE('Member ID          : '  || p_MemberID || ' has renewed membership. ');
+DBMS_OUTPUT.PUT_LINE('Start Date         : '  || TO_CHAR(v_newStartDate,'YYYY-MM-DD'));
+DBMS_OUTPUT.PUT_LINE('End Date           : '  || TO_CHAR(v_newEndDate,'YYYY-MM-DD'));
 
     COMMIT;
 

@@ -10,6 +10,13 @@ CREATE OR REPLACE PROCEDURE prc_facility_maintenance(
 )
 IS
     v_exists  NUMBER;
+
+    -- Custom Exception
+    EMPTY_DATA EXCEPTION;
+
+    e_schedule_conflict EXCEPTION;
+    PRAGMA EXCEPTION_INIT(e_schedule_conflict, -20002);
+
 BEGIN
     -- Validate date range
     IF p_StartDate >= p_EndDate THEN
@@ -21,7 +28,7 @@ BEGIN
     WHERE FacilityID = p_FacilityID;
 
     IF v_exists = 0 THEN
-        RAISE_APPLICATION_ERROR(-20001, 'Facility does not exist.');
+        RAISE EMPTY_DATA;
     END IF;
 
     -- Check for schedule conflicts
@@ -35,7 +42,7 @@ BEGIN
      );
 
     IF v_exists > 0 THEN
-        RAISE_APPLICATION_ERROR(-20002, 'Maintenance period conflicts with active bookings.');
+        RAISE e_schedule_conflict;
     END IF;
 
     -- Update facility status
@@ -44,15 +51,27 @@ BEGIN
     WHERE FacilityID = p_FacilityID;
 
 --Output
-DBMS_OUTPUT.PUT_LINE('---- Facility Maintenance Log ----');
-DBMS_OUTPUT.PUT_LINE('Facility ID    : ' || p_FacilityID);
-DBMS_OUTPUT.PUT_LINE('Facility Status: ' || p_status);
-DBMS_OUTPUT.PUT_LINE('Start Date     : ' || TO_CHAR(p_StartDate, 'YYYY-MM-DD'));
-DBMS_OUTPUT.PUT_LINE('End Date       : ' || TO_CHAR(p_EndDate, 'YYYY-MM-DD'));
+DBMS_OUTPUT.PUT_LINE(RPAD('=', 50,'='));
+DBMS_OUTPUT.PUT_LINE('------------ Facility Maintenance Log ------------');
+DBMS_OUTPUT.PUT_LINE(RPAD('=', 50,'='));
+DBMS_OUTPUT.PUT_LINE('Facility ID      : ' || p_FacilityID);
+DBMS_OUTPUT.PUT_LINE('Facility Status  : ' || p_status);
+DBMS_OUTPUT.PUT_LINE('Start Date       : ' || TO_CHAR(p_StartDate, 'YYYY-MM-DD'));
+DBMS_OUTPUT.PUT_LINE('End Date         : ' || TO_CHAR(p_EndDate, 'YYYY-MM-DD'));
+DBMS_OUTPUT.PUT_LINE(RPAD('=', 50,'='));
+DBMS_OUTPUT.PUT_LINE('');
+DBMS_OUTPUT.PUT_LINE('----------------- End Of Report ------------------');
+DBMS_OUTPUT.PUT_LINE(RPAD('=', 50,'='));
 
     COMMIT;
 
 EXCEPTION
+    WHEN EMPTY_DATA THEN
+        DBMS_OUTPUT.PUT_LINE('Facility ID ' || p_FacilityID || ' does not exist.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20001, 'No data found during operation.');
+    WHEN e_schedule_conflict THEN
+        RAISE_APPLICATION_ERROR(-20002, 'Maintenance period conflicts with active bookings.');
     WHEN OTHERS THEN
         ROLLBACK;
         RAISE_APPLICATION_ERROR(-20003, 'Unexpected Error: '|| SQLERRM);
@@ -64,3 +83,5 @@ EXEC prc_facility_maintenance ('FAC0000001', '2024-12-01', '2024-12-14', 'Under 
 EXEC prc_facility_maintenance ('FAC0000001', '2024-05-28', '2024-05-25');
 
 EXEC prc_facility_maintenance ('FAC0000001', '2020-03-29', '2020-03-31');
+
+EXEC prc_facility_maintenance ('FAC43243', '2020-03-29', '2020-03-31');
