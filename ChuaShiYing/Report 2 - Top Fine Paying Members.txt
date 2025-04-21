@@ -7,7 +7,7 @@ CREATE OR REPLACE PROCEDURE prc_top_fine_payers (
     p_end_date   IN DATE
 )
 IS
-    -- Cursor to fetch top members who paid the most fines
+    -- Cursor to fetch members with total paid fines
     CURSOR cur_members IS
         SELECT m.MemberID, m.FirstName || ' ' || m.LastName AS FullName, SUM(f.FineAmount) AS TotalPaid
         FROM Member m
@@ -20,21 +20,25 @@ IS
         HAVING SUM(f.FineAmount) > 0
         ORDER BY TotalPaid DESC;
 
-    -- Cursor to fetch invoices per member
+    -- Cursor to get invoices per member
     CURSOR cur_invoice(p_member_id CHAR) IS
         SELECT InvoiceID, PaymentDate, PaymentMethod, TotalAmount
         FROM Invoice
         WHERE MemberID = p_member_id
-          AND PaymentDate BETWEEN p_start_date AND p_end_date
-        ORDER BY PaymentDate;
+          AND PaymentDate BETWEEN p_start_date AND p_end_date;
 
-    -- Cursor to fetch fines per invoice
+    -- Cursor to get fines per invoice
     CURSOR cur_fines(p_invoice_id CHAR) IS
         SELECT FineID, FineAmount, IssueDate, Remark
         FROM Fine
-        WHERE InvoiceID = p_invoice_id
-          AND FineStatus = 'PAID';
+        WHERE InvoiceID = p_invoice_id AND FineStatus = 'PAID';
 
+    -- Record variables
+    v_member     cur_members%ROWTYPE;
+    v_invoice    cur_invoice%ROWTYPE;
+    v_fine       cur_fines%ROWTYPE;
+
+    -- Totals
     v_grand_total NUMBER := 0;
 BEGIN
     DBMS_OUTPUT.PUT_LINE(RPAD('=', 160, '='));
@@ -42,32 +46,47 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Report Period: ' || TO_CHAR(p_start_date, 'DD-MON-YYYY') || ' to ' || TO_CHAR(p_end_date, 'DD-MON-YYYY'));
     DBMS_OUTPUT.PUT_LINE(RPAD('=', 160, '='));
 
-    FOR m_rec IN cur_members LOOP
-        DBMS_OUTPUT.PUT_LINE(CHR(10) || 'Member: ' || m_rec.FullName || ' (' || m_rec.MemberID || ')');
-        DBMS_OUTPUT.PUT_LINE('Total Fines Paid: RM ' || TO_CHAR(m_rec.TotalPaid, '9990.00'));
+    OPEN cur_members;
+    LOOP
+        FETCH cur_members INTO v_member;
+        EXIT WHEN cur_members%NOTFOUND;
+
+        DBMS_OUTPUT.PUT_LINE(CHR(10) || 'Member: ' || v_member.FullName || ' (' || v_member.MemberID || ')');
+        DBMS_OUTPUT.PUT_LINE('Total Fines Paid: RM ' || TO_CHAR(v_member.TotalPaid, '9990.00'));
         DBMS_OUTPUT.PUT_LINE(RPAD('-', 160, '-'));
         DBMS_OUTPUT.PUT_LINE(RPAD('InvoiceID', 12) || RPAD('Pay Date', 14) || RPAD('Method', 15) || RPAD('Total(RM)', 12) || ' | ' ||
                              RPAD('FineID', 10) || RPAD('Amount(RM)', 12) || RPAD('Issue Date', 14) || 'Remark');
         DBMS_OUTPUT.PUT_LINE(RPAD('-', 160, '-'));
 
-        FOR inv_rec IN cur_invoice(m_rec.MemberID) LOOP
-            FOR f_rec IN cur_fines(inv_rec.InvoiceID) LOOP
+        OPEN cur_invoice(v_member.MemberID);
+        LOOP
+            FETCH cur_invoice INTO v_invoice;
+            EXIT WHEN cur_invoice%NOTFOUND;
+
+            OPEN cur_fines(v_invoice.InvoiceID);
+            LOOP
+                FETCH cur_fines INTO v_fine;
+                EXIT WHEN cur_fines%NOTFOUND;
+
                 DBMS_OUTPUT.PUT_LINE(
-                    RPAD(inv_rec.InvoiceID, 12) ||
-                    RPAD(TO_CHAR(inv_rec.PaymentDate, 'DD-MON-YY'), 14) ||
-                    RPAD(inv_rec.PaymentMethod, 15) ||
-                    RPAD(TO_CHAR(inv_rec.TotalAmount, '9990.00'), 12) || ' | ' ||
-                    RPAD(f_rec.FineID, 10) ||
-                    RPAD(TO_CHAR(f_rec.FineAmount, '9990.00'), 12) ||
-                    RPAD(TO_CHAR(f_rec.IssueDate, 'DD-MON-YY'), 14) ||
-                    f_rec.Remark
+                    RPAD(v_invoice.InvoiceID, 12) ||
+                    RPAD(TO_CHAR(v_invoice.PaymentDate, 'DD-MON-YY'), 14) ||
+                    RPAD(v_invoice.PaymentMethod, 15) ||
+                    RPAD(TO_CHAR(v_invoice.TotalAmount, '9990.00'), 12) || ' | ' ||
+                    RPAD(v_fine.FineID, 10) ||
+                    RPAD(TO_CHAR(v_fine.FineAmount, '9990.00'), 12) ||
+                    RPAD(TO_CHAR(v_fine.IssueDate, 'DD-MON-YY'), 14) ||
+                    v_fine.Remark
                 );
             END LOOP;
+            CLOSE cur_fines;
         END LOOP;
+        CLOSE cur_invoice;
 
+        v_grand_total := v_grand_total + v_member.TotalPaid;
         DBMS_OUTPUT.PUT_LINE(RPAD('-', 160, '-'));
-        v_grand_total := v_grand_total + m_rec.TotalPaid;
     END LOOP;
+    CLOSE cur_members;
 
     DBMS_OUTPUT.PUT_LINE(CHR(10) || 'GRAND TOTAL FINE PAID BY ALL MEMBERS: RM ' || TO_CHAR(v_grand_total, '9990.00'));
     DBMS_OUTPUT.PUT_LINE(RPAD('=', 160, '='));

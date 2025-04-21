@@ -38,7 +38,7 @@ COLUMN TotalFines   FORMAT 99          HEADING 'No. of Fines'
 COLUMN TotalAmount  FORMAT 9990.99     HEADING 'Total Fine (RM)'
 
 -- Subtotals per member
-BREAK ON MemberID SKIP 2 ON REPORT;
+BREAK ON MemberID ON FullName SKIP 2 ON REPORT;
 COMPUTE SUM LABEL 'Total:' OF TotalAmount ON MemberID;
 COMPUTE SUM LABEL 'Grand Total:' OF TotalAmount ON REPORT;
 
