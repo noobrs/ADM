@@ -161,25 +161,3 @@ BEGIN
   END IF;
 END;
 /
-
-select bookid, availableCopies, borrowedcount from book where bookid in ('BOK0000001', 'BOK0000002', 'BOK0000003');
-
-delete from loandetail where loanid='LOA0000105' and bookid='BOK0000003';
-
-select bookid, availableCopies, borrowedcount from book where bookid in ('BOK0000001', 'BOK0000002', 'BOK0000003');
-
-update loandetail set bookid = 'BOK0000003' where bookid='BOK0000001' and loanid='0000105';
-
-select bookid, availableCopies, borrowedcount from book where bookid in ('BOK0000001', 'BOK0000002', 'BOK0000003');
-
-update loandetail set bookid = 'BOK0000003' where bookid='BOK0000001' and loanid='LOA0000105';
-
-select bookid, availableCopies, borrowedcount from book where bookid in ('BOK0000001', 'BOK0000002', 'BOK0000003');
-
-select * from loandetail where loanid ='LOA0000105';
-
-update loandetail set status='RETURNED' where bookid='BOK0000003' and loanid='LOA0000105';
-
-update loandetail set status='BORROWED' where bookid='BOK0000003' and loanid='LOA0000105';
-
-select * from loandetail where loanid ='LOA0000105';
