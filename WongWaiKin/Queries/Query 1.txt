@@ -55,9 +55,9 @@ DROP INDEX idx_loan_loanid_memberid;
 DROP INDEX idx_member_dob;
 
 -- Create indexes
-CREATE INDEX idx_book_genre ON Book (Genre);
-CREATE INDEX idx_loandetail_bookid_loanid ON LoanDetail (BookID, LoanID);
-CREATE INDEX idx_loan_loanid_memberid ON Loan (LoanID, MemberID);
+CREATE INDEX idx_book_genre ON Book (UPPER(Genre));
+CREATE INDEX idx_loandetail_bookid_loanid ON LoanDetail (UPPER(BookID), UPPER(LoanID));
+CREATE INDEX idx_loan_loanid_memberid ON Loan (UPPER(LoanID), UPPER(MemberID));
 CREATE INDEX idx_member_dob ON Member (DOB);
 
 TTITLE CENTER '<=== Genre of Books Categorized by Age Group ===>' SKIP 2
